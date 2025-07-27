@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36301.6 d17.14
+VisualStudioVersion = 17.14.36301.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogService", "LogService\LogService.csproj", "{95E18A4E-AD24-484B-A659-9B8529085C2F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "UserService\UserService.csproj", "{82EC5706-482E-4A27-859B-3107D8F069C4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "ApiGateway\ApiGateway.csproj", "{B9CC3FA2-88FD-4323-9394-340E113584FD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{95E18A4E-AD24-484B-A659-9B8529085C2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{95E18A4E-AD24-484B-A659-9B8529085C2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{95E18A4E-AD24-484B-A659-9B8529085C2F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82EC5706-482E-4A27-859B-3107D8F069C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82EC5706-482E-4A27-859B-3107D8F069C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82EC5706-482E-4A27-859B-3107D8F069C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82EC5706-482E-4A27-859B-3107D8F069C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

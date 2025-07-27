@@ -1,0 +1,85 @@
+﻿// src/UserService/Services/UserService.cs
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using UserService.Data;
+using UserService.Models;
+
+namespace UserService.Services;
+
+public class UserService : IUserService
+{
+    private readonly CorpContext _ctx;
+    private readonly IKafkaProducer _producer;
+
+    public UserService(CorpContext ctx, IKafkaProducer producer)
+    {
+        _ctx = ctx;
+        _producer = producer;
+    }
+
+    public async Task<IEnumerable<User>> GetAllAsync()
+    {
+        return await _ctx.Users
+                         .AsNoTracking()
+                         .ToListAsync();
+    }
+
+    public async Task<User?> GetByIdAsync(Guid id)
+    {
+        return await _ctx.Users.FindAsync(id);
+    }
+
+    public async Task<User> CreateAsync(string email, string password, bool isAdmin)
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            Password = BCrypt.Net.BCrypt.HashPassword(password),
+            IsAdmin = isAdmin,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _ctx.Users.Add(user);
+        await _ctx.SaveChangesAsync();
+
+        var logEvent = new LogMessage()
+        {
+            Source = "UserService",
+            Level = "INFO",
+            Message = "Usuário criado",
+            Metadata = new Dictionary<string, object>
+            {
+                { "UserId", user.Id.ToString() },
+                { "Email", user.Email },
+                { "IsAdmin", user.IsAdmin.ToString() }
+            },
+            Timestamp = DateTime.UtcNow
+        };
+        var json = JsonSerializer.Serialize(logEvent);
+        await _producer.ProduceAsync(json);
+
+        return user;
+    }
+
+    public async Task UpdateAsync(User user, string? newPassword = null)
+    {
+        if (!string.IsNullOrWhiteSpace(newPassword))
+        {
+            user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        }
+
+        _ctx.Users.Update(user);
+        await _ctx.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var user = await _ctx.Users.FindAsync(id);
+        if (user is not null)
+        {
+            _ctx.Users.Remove(user);
+            await _ctx.SaveChangesAsync();
+        }
+    }
+}
