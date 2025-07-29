@@ -26,7 +26,7 @@
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "http://localhost:5005",
+    "BaseUrl": "http://localhost:5000",
     "RequestIdKey": "OcRequestId"
   }
 }

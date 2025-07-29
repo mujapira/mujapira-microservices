@@ -1,5 +1,4 @@
-﻿// src/UserService/Services/UserService.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using UserService.Data;
 using UserService.Models;
@@ -19,14 +18,45 @@ public class UserService : IUserService
 
     public async Task<IEnumerable<User>> GetAllAsync()
     {
-        return await _ctx.Users
-                         .AsNoTracking()
-                         .ToListAsync();
+        var users = await _ctx.Users
+                             .AsNoTracking()
+                             .ToListAsync();
+
+        var logEvent = new LogMessage()
+        {
+            Source = "UserService",
+            Level = "INFO",
+            Message = "Listagem de usuários",
+            Metadata = new Dictionary<string, object>
+            {
+                { "Count", users.Count }
+            },
+            Timestamp = DateTime.UtcNow
+        };
+        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+
+        return users;
     }
 
     public async Task<User?> GetByIdAsync(Guid id)
     {
-        return await _ctx.Users.FindAsync(id);
+        var user = await _ctx.Users.FindAsync(id);
+
+        var logEvent = new LogMessage()
+        {
+            Source = "UserService",
+            Level = "INFO",
+            Message = "Busca de usuário por ID",
+            Metadata = new Dictionary<string, object>
+            {
+                { "UserId", id.ToString() },
+                { "Found", (user != null).ToString() }
+            },
+            Timestamp = DateTime.UtcNow
+        };
+        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+
+        return user;
     }
 
     public async Task<User> CreateAsync(string email, string password, bool isAdmin)
@@ -56,8 +86,7 @@ public class UserService : IUserService
             },
             Timestamp = DateTime.UtcNow
         };
-        var json = JsonSerializer.Serialize(logEvent);
-        await _producer.ProduceAsync(json);
+        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
 
         return user;
     }
@@ -71,6 +100,19 @@ public class UserService : IUserService
 
         _ctx.Users.Update(user);
         await _ctx.SaveChangesAsync();
+
+        var logEvent = new LogMessage()
+        {
+            Source = "UserService",
+            Level = "INFO",
+            Message = "Usuário atualizado",
+            Metadata = new Dictionary<string, object>
+            {
+                { "UserId", user.Id.ToString() }
+            },
+            Timestamp = DateTime.UtcNow
+        };
+        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
     }
 
     public async Task DeleteAsync(Guid id)
@@ -80,6 +122,19 @@ public class UserService : IUserService
         {
             _ctx.Users.Remove(user);
             await _ctx.SaveChangesAsync();
+
+            var logEvent = new LogMessage()
+            {
+                Source = "UserService",
+                Level = "INFO",
+                Message = "Usuário deletado",
+                Metadata = new Dictionary<string, object>
+                {
+                    { "UserId", id.ToString() }
+                },
+                Timestamp = DateTime.UtcNow
+            };
+            await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
         }
     }
 }

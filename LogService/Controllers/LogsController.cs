@@ -6,11 +6,11 @@ namespace LogService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class LogController : ControllerBase
+public class LogsController : ControllerBase
 {
     private readonly ILogService _logService;
 
-    public LogController(ILogService logService)
+    public LogsController(ILogService logService)
     {
         _logService = logService;
     }
@@ -36,8 +36,7 @@ public class LogController : ControllerBase
     {
         var entries = await _logService.GetAllAsync(source, limit);
 
-        // Aqui mapeamos cada LogEntry para um objeto que só tem
-        // tipos que o JSON padrão sabe serializar
+
         var result = entries.Select(e => new
         {
             id = e.Id,
@@ -45,12 +44,11 @@ public class LogController : ControllerBase
             level = e.Level,
             message = e.Message,
             source = e.Source,
-            // Se quiser mesmo devolver metadata, TStringfy tudo:
             metadata = e.Metadata == null
                 ? null
                 : e.Metadata.ToDictionary(
                     kv => kv.Key,
-                    kv => kv.Value?.ToString()  // força string simples
+                    kv => kv.Value?.ToString()
                   )
         });
 

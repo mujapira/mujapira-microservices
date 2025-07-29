@@ -1,4 +1,3 @@
-// src/UserService/Controllers/UsersController.cs
 using Microsoft.AspNetCore.Mvc;
 using UserService.Models;
 using UserService.Services;
@@ -16,7 +15,6 @@ public class UsersController : ControllerBase
         _userService = userService;
     }
 
-    // GET /api/users
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -24,7 +22,6 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
-    // GET /api/users/{id}
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -34,7 +31,6 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
-    // POST /api/users
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
@@ -45,7 +41,6 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
-    // PUT /api/users/{id}
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserDto dto)
     {
@@ -56,7 +51,7 @@ public class UsersController : ControllerBase
         existing.Email = dto.Email;
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
-            existing.Password = dto.Password; // o hash é aplicado dentro do serviço
+            existing.Password = dto.Password;
         }
         existing.IsAdmin = dto.IsAdmin;
 
@@ -64,7 +59,6 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-    // DELETE /api/users/{id}
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
@@ -73,6 +67,5 @@ public class UsersController : ControllerBase
     }
 }
 
-// DTOs usados pelo controller
 public record CreateUserDto(string Email, string Password, bool IsAdmin);
 public record UpdateUserDto(string Email, string? Password, bool IsAdmin);
