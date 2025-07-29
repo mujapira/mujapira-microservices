@@ -18,6 +18,7 @@ builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
 builder.Services.AddDbContext<CorpContext>(opts =>
     opts.UseNpgsql(cs));
 
+builder.Services.AddScoped<IUserService, UserService.Services.UserService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

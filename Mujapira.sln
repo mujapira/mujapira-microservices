@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "UserService\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "ApiGateway\ApiGateway.csproj", "{B9CC3FA2-88FD-4323-9394-340E113584FD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "AuthService\AuthService.csproj", "{8B87D990-ABC8-46CB-93C2-EF68D291692D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B9CC3FA2-88FD-4323-9394-340E113584FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B87D990-ABC8-46CB-93C2-EF68D291692D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B87D990-ABC8-46CB-93C2-EF68D291692D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B87D990-ABC8-46CB-93C2-EF68D291692D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B87D990-ABC8-46CB-93C2-EF68D291692D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

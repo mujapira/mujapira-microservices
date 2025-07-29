@@ -65,7 +65,24 @@ public class UsersController : ControllerBase
         await _userService.DeleteAsync(id);
         return NoContent();
     }
+
+    [HttpPost("validate")]
+    public async Task<IActionResult> Validate([FromBody] ValidateUserDto dto)
+    {
+        var user = await _userService.ValidateCredentialsAsync(dto.Email, dto.Password);
+        if (user is null)
+            return Unauthorized();
+
+        // DTO mínimo para o AuthService
+        return Ok(new
+        {
+            Id = user.Id,
+            Email = user.Email,
+            IsAdmin = user.IsAdmin
+        });
+    }
 }
 
 public record CreateUserDto(string Email, string Password, bool IsAdmin);
 public record UpdateUserDto(string Email, string? Password, bool IsAdmin);
+public record ValidateUserDto(string Email, string Password);

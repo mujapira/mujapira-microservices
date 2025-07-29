@@ -89,6 +89,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -120,6 +121,21 @@ services:
       start_period: 10s
     networks:
       - micro_net
+
+  authservice:
+    build:
+      context: ./AuthService
+      dockerfile: Dockerfile
+    ports:
+      - "5003:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+    networks:
+    - micro_net
 
   apigateway:
     build:

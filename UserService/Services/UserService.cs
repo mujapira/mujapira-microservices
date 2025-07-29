@@ -137,4 +137,14 @@ public class UserService : IUserService
             await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
         }
     }
+
+    public async Task<User?> ValidateCredentialsAsync(string email, string password)
+    {
+        var user = await _ctx.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user is null) return null;
+
+        return BCrypt.Net.BCrypt.Verify(password, user.Password)
+               ? user
+               : null;
+    }
 }
