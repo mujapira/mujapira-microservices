@@ -14,6 +14,18 @@ builder.Configuration
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigins", builder =>
+    {
+        builder
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 builder.Services.AddHealthChecks();
 
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
@@ -50,7 +62,7 @@ builder.Services.AddOcelot(builder.Configuration);
 var app = builder.Build();
 
 app.MapHealthChecks("/health");
-
+app.UseCors("AllowSpecificOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 

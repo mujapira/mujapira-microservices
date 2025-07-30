@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using UserService.Models;
 using UserService.Services;
 
@@ -83,6 +84,21 @@ public class UsersController : ControllerBase
             IsAdmin = user.IsAdmin
         });
     }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> Me()
+    {
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(idClaim, out var userId))
+            return Unauthorized();
+
+        var dto = await _userService.GetByIdAsync(userId);
+        if (dto == null)
+            return NotFound();
+
+        return Ok(dto);
+    }
+
 }
 
 public record CreateUserDto(string Email, string Password, bool IsAdmin);

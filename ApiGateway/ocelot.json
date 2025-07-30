@@ -1,8 +1,28 @@
 {
   "Routes": [
     {
+      "UpstreamPathTemplate": "/{everything}",
+      "UpstreamHttpMethod": [ "OPTIONS" ],
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 80
+        }
+      ],
+      "Priority": 999,
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
+      }
+    },
+
+    {
       "UpstreamPathTemplate": "/users",
-      "UpstreamHttpMethod": [ "POST" ],
+      "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/users",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -10,11 +30,18 @@
           "Host": "userservice",
           "Port": 8080
         }
-      ]
+      ],
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "POST", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
+      }
     },
+
     {
       "UpstreamPathTemplate": "/users/validate",
-      "UpstreamHttpMethod": [ "POST" ],
+      "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/users/validate",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -22,9 +49,41 @@
           "Host": "userservice",
           "Port": 8080
         }
-      ]
+      ],
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "POST", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
+      }
     },
+
+    // <-- rota nova para GET /users/me
     {
+      "UpstreamPathTemplate": "/users/me",
+      "UpstreamHttpMethod": [ "GET", "OPTIONS" ],
+      "DownstreamPathTemplate": "/api/users/me",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "userservice",
+          "Port": 8080
+        }
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "JwtBearer"
+      },
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "GET", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
+      }
+    },
+
+    {
+      "UpstreamPathTemplate": "/users/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/users/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -33,17 +92,23 @@
           "Port": 8080
         }
       ],
-      "UpstreamPathTemplate": "/users/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "JwtBearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "JwtBearer"
       },
       "RouteClaimsRequirement": {
         "role": "Admin"
+      },
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "GET", "PUT", "DELETE", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
       }
     },
+
     {
+      "UpstreamPathTemplate": "/logs/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/logs/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -52,17 +117,23 @@
           "Port": 8080
         }
       ],
-      "UpstreamPathTemplate": "/logs/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "JwtBearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "JwtBearer"
       },
       "RouteClaimsRequirement": {
         "role": "Admin"
+      },
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
       }
     },
+
     {
+      "UpstreamPathTemplate": "/auth/{everything}",
+      "UpstreamHttpMethod": [ "POST", "GET", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/auth/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -71,10 +142,15 @@
           "Port": 8080
         }
       ],
-      "UpstreamPathTemplate": "/auth/{everything}",
-      "UpstreamHttpMethod": [ "POST", "GET" ]
+      "CorsOptions": {
+        "AllowCredentials": true,
+        "AllowedOrigins": [ "http://localhost:3000" ],
+        "AllowedMethods": [ "POST", "GET", "OPTIONS" ],
+        "AllowedHeaders": [ "*" ]
+      }
     }
   ],
+
   "GlobalConfiguration": {
     "BaseUrl": "http://localhost:5000",
     "RequestIdKey": "OcRequestId"
