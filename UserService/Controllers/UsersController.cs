@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserService.Models;
 using UserService.Services;
@@ -31,6 +32,7 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
     {
@@ -66,6 +68,7 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
+    [AllowAnonymous]
     [HttpPost("validate")]
     public async Task<IActionResult> Validate([FromBody] ValidateUserDto dto)
     {
@@ -73,7 +76,6 @@ public class UsersController : ControllerBase
         if (user is null)
             return Unauthorized();
 
-        // DTO mínimo para o AuthService
         return Ok(new
         {
             Id = user.Id,

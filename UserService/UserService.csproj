@@ -14,6 +14,9 @@
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
 		<PackageReference Include="Confluent.Kafka" Version="2.11.0" />
 		<PackageReference Include="Dapper" Version="2.1.66" />
+		<PackageReference Include="JWT" Version="11.0.0" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.HostFiltering" Version="2.3.0" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
 			<PrivateAssets>all</PrivateAssets>
@@ -29,6 +32,7 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.7">
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.13.0" />
 	</ItemGroup>
 
 </Project>

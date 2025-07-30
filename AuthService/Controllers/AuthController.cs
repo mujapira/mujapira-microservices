@@ -1,4 +1,5 @@
 using AuthService.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
@@ -8,6 +9,7 @@ public class AuthController : ControllerBase
     private readonly IAuthService _auth;
     public AuthController(IAuthService auth) => _auth = auth;
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
@@ -18,6 +20,7 @@ public class AuthController : ControllerBase
         return Ok(new { accessToken = res.AccessToken, refreshToken = res.RefreshToken });
     }
 
+    [AllowAnonymous]
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest req)
     {

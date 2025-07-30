@@ -18,16 +18,20 @@ namespace AuthService.Services
         public string GenerateAccessToken(UserDto user)
         {
             var jti = Guid.NewGuid().ToString();
+            var roleValue = user.IsAdmin ? "Admin" : "User";
+
             var claims = new List<Claim>
             {
                 new(JwtRegisteredClaimNames.Jti, jti),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Email, user.Email),
-                new(ClaimTypes.Role, user.IsAdmin ? "Admin" : "User")
+    
+                new("role", roleValue)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Secret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
             var token = new JwtSecurityToken(
                 issuer: _jwt.Issuer,
                 audience: _jwt.Audience,
@@ -35,6 +39,7 @@ namespace AuthService.Services
                 expires: DateTime.UtcNow.AddMinutes(_jwt.AccessTokenExpirationMinutes),
                 signingCredentials: creds
             );
+
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 

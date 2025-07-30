@@ -1,16 +1,28 @@
 {
   "Routes": [
     {
-      "DownstreamPathTemplate": "/api/logs/{everything}",
+      "UpstreamPathTemplate": "/users",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/users",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "logservice",
+          "Host": "userservice",
           "Port": 8080
         }
-      ],
-      "UpstreamPathTemplate": "/logs/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      ]
+    },
+    {
+      "UpstreamPathTemplate": "/users/validate",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/users/validate",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "userservice",
+          "Port": 8080
+        }
+      ]
     },
     {
       "DownstreamPathTemplate": "/api/users/{everything}",
@@ -22,7 +34,33 @@
         }
       ],
       "UpstreamPathTemplate": "/users/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ]
+      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "JwtBearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "role": "Admin"
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/logs/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "logservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamPathTemplate": "/logs/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "JwtBearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "role": "Admin"
+      }
     },
     {
       "DownstreamPathTemplate": "/api/auth/{everything}",

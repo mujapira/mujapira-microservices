@@ -1,51 +1,67 @@
-﻿using LogService.Configurations;
+﻿using System.Text;
+using LogService.Configurations;
 using LogService.Services;
 using LogService.Settings;
-using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HostFiltering;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
+var configuration = builder.Configuration;
+
+builder.Services.Configure<HostFilteringOptions>(
+    configuration.GetSection("HostFiltering")
+);
 
 builder.Services.AddHealthChecks();
 
-// 1) Configurações do MongoDB e Kafka
 builder.Services.Configure<MongoDbSettings>(
-    builder.Configuration.GetSection("MongoDb"));
+    configuration.GetSection("MongoDb")
+);
 builder.Services.Configure<KafkaSettings>(
-    builder.Configuration.GetSection("Kafka"));
+    configuration.GetSection("Kafka")
+);
 
-// 2) Serviços e o consumer Kafka como HostedService
+builder.Services.Configure<JwtSettings>(
+    configuration.GetSection("JwtSettings")
+);
+
+var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>();
+builder.Services
+  .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+  .AddJwtBearer(options =>
+  {
+      options.RequireHttpsMetadata = false;
+      options.TokenValidationParameters = new TokenValidationParameters
+      {
+          ValidateIssuer = true,
+          ValidIssuer = jwtSettings.Issuer,
+          ValidateAudience = true,
+          ValidAudience = jwtSettings.Audience,
+          ValidateLifetime = true,
+          ClockSkew = TimeSpan.Zero,
+          IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+          ValidateIssuerSigningKey = true,
+          RoleClaimType = ClaimTypes.Role
+      };
+  });
+
 builder.Services.AddScoped<ILogService, LogService.Services.LogService>();
 builder.Services.AddHostedService<KafkaLogConsumer>();
 
-// 3) MVC + Swagger/OpenAPI
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "LogService API",
-        Version = "v1",
-        Description = "API para leitura/escrita de logs via Kafka + MongoDB"
-    });
-});
 
 var app = builder.Build();
 
+app.UseHostFiltering();
+
 app.MapHealthChecks("/health");
 
-// 4) Middleware de Swagger
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "LogService API v1");
-    c.RoutePrefix = string.Empty;  // Swagger UI disponível em http://localhost:5000/
-});
-
-// 5) (Opcional) Health‑check simples
-app.MapGet("/health", () => Results.Ok("up"));
-
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

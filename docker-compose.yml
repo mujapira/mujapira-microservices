@@ -60,8 +60,9 @@ services:
     build:
       context: ./LogService
       dockerfile: Dockerfile
-    ports:
-      - "5001:8080"
+    # apenas expõe internamente a porta 8080 na rede docker
+    expose:
+      - "8080"
     depends_on:
       kafka:
         condition: service_healthy
@@ -70,14 +71,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
-    networks:
-      - micro_net
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5001/health || exit 1"]
+      # agora o healthcheck mira na porta interna 8080
+      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - micro_net
 
   postgres:
     image: postgres:15
@@ -103,8 +105,8 @@ services:
     build:
       context: ./UserService
       dockerfile: Dockerfile
-    ports:
-      - "5002:8080"
+    expose:
+      - "8080"
     depends_on:
       kafka:
         condition: service_healthy
@@ -114,7 +116,7 @@ services:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -126,16 +128,22 @@ services:
     build:
       context: ./AuthService
       dockerfile: Dockerfile
-    ports:
-      - "5003:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
-    - micro_net
+      - micro_net
 
   apigateway:
     build:
@@ -143,17 +151,19 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
+    volumes:
+      - ./ApiGateway/ocelot.json:/app/ocelot.json:ro
+      - ./ApiGateway/appsettings.json:/app/appsettings.json:ro
+      - ./ApiGateway/appsettings.Development.json:/app/appsettings.Development.json:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:5000
     networks:
       - micro_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 1m30s
-      timeout: 30s
+      test: ["CMD","curl","-f","http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
       retries: 3
-      start_period: 30s
 
 volumes:
   mongo-data:

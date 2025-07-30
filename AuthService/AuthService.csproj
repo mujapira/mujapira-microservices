@@ -10,6 +10,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.HostFiltering" Version="2.3.0" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.7">
