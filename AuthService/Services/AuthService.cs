@@ -1,93 +1,178 @@
 ﻿using AuthService.Models;
-using AuthService.Dtos;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
+using Contracts.Auth;
+using Contracts.Common;
+using Contracts.Logs;
+using Contracts.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace AuthService.Services
 {
-    public class AuthService : IAuthService
+    public class AuthService(
+        IUserService userService,
+        ITokenService tokenService,
+        AuthDbContext db,
+        IOptions<JwtSettings> jwtOpts,
+        IKafkaProducer producer) : IAuthService
     {
-        private readonly IUserServiceClient _userClient;
-        private readonly ITokenService _tokenSvc;
-        private readonly AuthDbContext _db;
-        private readonly AuthJwtSettings _jwt;
+        private readonly IUserService _userService = userService;
+        private readonly ITokenService _tokenService = tokenService;
+        private readonly AuthDbContext _db = db;
+        private readonly JwtSettings _jwt = jwtOpts.Value;
+        private readonly IKafkaProducer _producer = producer;
 
-        public AuthService(IUserServiceClient userClient, ITokenService tokenSvc, AuthDbContext db, 
-            IOptions<AuthJwtSettings> jwtOpts)
+        public async Task<AuthResult> Login(LoginRequest request)
         {
-            _userClient = userClient;
-            _tokenSvc = tokenSvc;
-            _db = db;
-            _jwt = jwtOpts.Value;
-        }
+            var validateDto = new ValidateUserDto(request.Email, request.Password);
+            var user = await _userService.ValidateCredentials(validateDto);
+            if (user is null)
+            {
+                var logDto = new LogMessageDto(
+                    Source: RegisteredMicroservices.AuthService,
+                    Level: Contracts.Logs.LogLevel.Warn,
+                    Message: "Login falhou: credenciais inválidas",
+                    Timestamp: DateTime.UtcNow,
+                    Metadata: new Dictionary<string, object>
+                    {
+                        ["Email"] = request.Email
+                    }
+                );
+                await _producer.Produce(JsonSerializer.Serialize(logDto));
+                return AuthResult.Failure("Credenciais inválidas");
+            }
 
-        public async Task<AuthResult> LoginAsync(string email, string password)
-        {
-            var user = await _userClient.ValidateUserCredentialsAsync(email, password);
-            if (user == null)
-                return new AuthResult { Success = false, Errors = new[] { "Invalid credentials" } };
-
-            var accessToken = _tokenSvc.GenerateAccessToken(user);
-            var refreshToken = _tokenSvc.GenerateRefreshToken();
+            var access = _tokenService.GenerateAccessToken(user);
+            var refresh = _tokenService.GenerateRefreshToken();
+            var now = DateTime.UtcNow;
 
             await _db.RefreshTokens.AddAsync(new AuthRefreshToken
             {
-                Token = refreshToken,
-                JwtId = _tokenSvc.GetTokenId(accessToken),
-                CreationDate = DateTime.UtcNow,
-                ExpiryDate = DateTime.UtcNow.AddDays(_jwt.RefreshTokenExpirationDays),
+                Token = refresh,
+                JwtId = _tokenService.GetTokenId(access),
+                CreationDate = now,
+                ExpiryDate = now.AddDays(_jwt.RefreshTokenExpirationDays),
                 Used = false,
                 Invalidated = false,
                 UserId = user.Id
             });
             await _db.SaveChangesAsync();
 
-            return new AuthResult { Success = true, AccessToken = accessToken, RefreshToken = refreshToken };
+            var successLog = new LogMessageDto(
+                Source: RegisteredMicroservices.AuthService,
+                Level: Contracts.Logs.LogLevel.Info,
+                Message: "Login bem-sucedido",
+                Timestamp: now,
+                Metadata: new Dictionary<string, object>
+                {
+                    ["UserId"] = user.Id,
+                    ["Email"] = user.Email
+                }
+            );
+            await _producer.Produce(JsonSerializer.Serialize(successLog));
+
+            return AuthResult.SuccessResult(access, refresh);
         }
 
-        public async Task<AuthResult> RefreshTokenAsync(string token, string refreshToken)
+        public async Task<AuthResult> RefreshToken(RefreshTokenRequest request)
         {
-            var principal = _tokenSvc.GetPrincipalFromToken(token);
-            var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-            var stored = await _db.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+            var stored = await _db.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken);
 
-            if (stored == null || stored.Invalidated || stored.Used || stored.ExpiryDate < DateTime.UtcNow || stored.JwtId != jti)
-                return new AuthResult { Success = false, Errors = new[] { "Invalid refresh token" } };
+            if (stored is null
+             || stored.Invalidated
+             || stored.Used
+             || stored.ExpiryDate < DateTime.UtcNow)
+            {
+                var logDto = new LogMessageDto(
+                    Source: RegisteredMicroservices.AuthService,
+                    Level: Contracts.Logs.LogLevel.Warn,
+                    Message: "Refresh falhou: token inválido",
+                    Timestamp: DateTime.UtcNow,
+                    Metadata: new Dictionary<string, object>
+                    {
+                        ["RefreshToken"] = request.RefreshToken
+                    }
+                );
+                await _producer.Produce(JsonSerializer.Serialize(logDto));
+                return AuthResult.Failure("Refresh token inválido");
+            }
 
             stored.Used = true;
-            _db.Update(stored);
+            _db.RefreshTokens.Update(stored);
             await _db.SaveChangesAsync();
 
-            var userId = Guid.Parse(principal.FindFirst(ClaimTypes.NameIdentifier).Value);
-            // fetch minimal UserDto again
-            var user = new UserDto { Id = userId, Email = principal.FindFirst(ClaimTypes.Email).Value, IsAdmin = principal.IsInRole("Admin") };
+            var user = await _userService.GetById(stored.UserId);
+            if (user is null)
+            {
+                var logFail = new LogMessageDto(
+                    Source: RegisteredMicroservices.AuthService,
+                    Level: Contracts.Logs.LogLevel.Warn,
+                    Message: "Refresh falhou: usuário não encontrado",
+                    Timestamp: DateTime.UtcNow,
+                    Metadata: new Dictionary<string, object>
+                    {
+                        ["UserId"] = stored.UserId
+                    }
+                );
+                await _producer.Produce(JsonSerializer.Serialize(logFail));
+                return AuthResult.Failure("Usuário não encontrado");
+            }
 
-            var newAccess = _tokenSvc.GenerateAccessToken(user);
-            var newRefresh = _tokenSvc.GenerateRefreshToken();
+            var newAccess = _tokenService.GenerateAccessToken(user);
+            var newRefresh = _tokenService.GenerateRefreshToken();
+            var now = DateTime.UtcNow;
 
             await _db.RefreshTokens.AddAsync(new AuthRefreshToken
             {
                 Token = newRefresh,
-                JwtId = _tokenSvc.GetTokenId(newAccess),
-                CreationDate = DateTime.UtcNow,
-                ExpiryDate = DateTime.UtcNow.AddDays(_jwt.RefreshTokenExpirationDays),
+                JwtId = _tokenService.GetTokenId(newAccess),
+                CreationDate = now,
+                ExpiryDate = now.AddDays(_jwt.RefreshTokenExpirationDays),
                 Used = false,
                 Invalidated = false,
-                UserId = userId
+                UserId = user.Id
             });
             await _db.SaveChangesAsync();
 
-            return new AuthResult { Success = true, AccessToken = newAccess, RefreshToken = newRefresh };
-        }
-    }
+            var logSuccess = new LogMessageDto(
+                Source: RegisteredMicroservices.AuthService,
+                Level: Contracts.Logs.LogLevel.Info,
+                Message: "Refresh token bem-sucedido",
+                Timestamp: now,
+                Metadata: new Dictionary<string, object>
+                {
+                    ["UserId"] = user.Id
+                }
+            );
+            await _producer.Produce(JsonSerializer.Serialize(logSuccess));
 
-    public class AuthResult
-    {
-        public bool Success { get; set; }
-        public string AccessToken { get; set; }
-        public string RefreshToken { get; set; }
-        public string[] Errors { get; set; }
+            return AuthResult.SuccessResult(newAccess, newRefresh);
+        }
+
+        public async Task Logout(LogoutRequest request)
+        {
+            var stored = await _db.RefreshTokens
+                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken);
+
+            if (stored is not null)
+            {
+                stored.Invalidated = true;
+                _db.RefreshTokens.Update(stored);
+                await _db.SaveChangesAsync();
+
+                var logDto = new LogMessageDto(
+                    Source: RegisteredMicroservices.AuthService,
+                    Level: Contracts.Logs.LogLevel.Info,
+                    Message: "Logout realizado",
+                    Timestamp: DateTime.UtcNow,
+                    Metadata: new Dictionary<string, object>
+                    {
+                        ["UserId"] = stored.UserId
+                    }
+                );
+                await _producer.Produce(JsonSerializer.Serialize(logDto));
+            }
+        }
     }
 }

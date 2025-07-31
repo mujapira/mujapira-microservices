@@ -1,106 +1,80 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using UserService.Models;
+using Contracts.Users;
 using UserService.Services;
 
 namespace UserService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController : ControllerBase
+[Authorize]
+public class UsersController(IUserService userService) : ControllerBase
 {
-    private readonly IUserService _userService;
-
-    public UsersController(IUserService userService)
-    {
-        _userService = userService;
-    }
+    private readonly IUserService _userService = userService;
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
     {
-        var users = await _userService.GetAllAsync();
+        var users = await _userService.GetAll();
         return Ok(users);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<ActionResult<UserDto>> GetById(Guid id)
     {
-        var user = await _userService.GetByIdAsync(id);
-        if (user is null)
-            return NotFound();
+        var user = await _userService.GetById(id);
+        if (user is null) return NotFound();
         return Ok(user);
     }
 
     [AllowAnonymous]
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
+    public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
-            return BadRequest("Email e senha são obrigatórios.");
-
-        var created = await _userService.CreateAsync(dto.Email, dto.Password, dto.IsAdmin);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        var created = await _userService.Create(dto);
+        return CreatedAtAction(
+          nameof(GetById),
+          new { id = created.Id },
+          created
+        );
     }
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserDto dto)
     {
-        var existing = await _userService.GetByIdAsync(id);
-        if (existing is null)
-            return NotFound();
+        var existing = await _userService.GetById(id);
+        if (existing is null) return NotFound();
 
-        existing.Email = dto.Email;
-        if (!string.IsNullOrWhiteSpace(dto.Password))
-        {
-            existing.Password = dto.Password;
-        }
-        existing.IsAdmin = dto.IsAdmin;
-
-        await _userService.UpdateAsync(existing);
+        await _userService.Update(id, dto);
         return NoContent();
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        await _userService.DeleteAsync(id);
+        await _userService.Delete(id);
         return NoContent();
     }
 
     [AllowAnonymous]
-    [HttpPost("validate")]
-    public async Task<IActionResult> Validate([FromBody] ValidateUserDto dto)
+    [HttpPost("validateCredentials")]
+    public async Task<ActionResult<UserDto>> ValidateCredentials([FromBody] ValidateUserDto dto)
     {
-        var user = await _userService.ValidateCredentialsAsync(dto.Email, dto.Password);
-        if (user is null)
-            return Unauthorized();
-
-        return Ok(new
-        {
-            Id = user.Id,
-            Email = user.Email,
-            IsAdmin = user.IsAdmin
-        });
+        var user = await _userService.ValidateCredentials(dto);
+        if (user is null) return Unauthorized();
+        return Ok(user);
     }
 
     [HttpGet("me")]
-    public async Task<IActionResult> Me()
+    public async Task<ActionResult<UserDto>> Me()
     {
         var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(idClaim, out var userId))
             return Unauthorized();
 
-        var dto = await _userService.GetByIdAsync(userId);
-        if (dto == null)
-            return NotFound();
-
-        return Ok(dto);
+        var user = await _userService.GetById(userId);
+        if (user is null) return NotFound();
+        return Ok(user);
     }
-
 }
-
-public record CreateUserDto(string Email, string Password, bool IsAdmin);
-public record UpdateUserDto(string Email, string? Password, bool IsAdmin);
-public record ValidateUserDto(string Email, string Password);

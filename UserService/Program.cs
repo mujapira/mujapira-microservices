@@ -5,9 +5,10 @@ using System.Text;
 using UserService.Data;
 using UserService.Middlewares;
 using UserService.Services;
-using UserService.Settings;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using Contracts.Common;
+using Contracts.Users;
 
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;

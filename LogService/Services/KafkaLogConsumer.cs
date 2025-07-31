@@ -1,43 +1,28 @@
 ﻿using Confluent.Kafka;
 using Confluent.Kafka.Admin;
-using LogService.Configurations;
-using LogService.Models;
+using Contracts.Logs;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LogService.Models;
+using Contracts.Common;
 
 namespace LogService.Services;
 
-public class LogMessageDto
+public class KafkaLogConsumer(
+    IOptions<KafkaSettings> kafkaOptions,
+    IServiceProvider serviceProvider,
+    ILogger<KafkaLogConsumer> logger) : BackgroundService
 {
-    public string Source { get; set; } = null!;
-    public string Level { get; set; } = null!;
-    public string Message { get; set; } = null!;
-    public DateTime Timestamp { get; set; }
-    public Dictionary<string, object>? Metadata { get; set; }
-}
-
-public class KafkaLogConsumer : BackgroundService
-{
-    private readonly KafkaSettings _kafkaSettings;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<KafkaLogConsumer> _logger;
+    private readonly KafkaSettings _kafkaSettings = kafkaOptions.Value;
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly ILogger<KafkaLogConsumer> _logger = logger;
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
-
-    public KafkaLogConsumer(
-        IOptions<KafkaSettings> kafkaOptions,
-        IServiceProvider serviceProvider,
-        ILogger<KafkaLogConsumer> logger)
-    {
-        _kafkaSettings = kafkaOptions.Value;
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -58,14 +43,12 @@ public class KafkaLogConsumer : BackgroundService
 
         _logger.LogInformation("Kafka consumer iniciado, escutando tópico '{Topic}'", _kafkaSettings.Topic);
 
-        // 3) Loop em background, paralelamente ao host HTTP
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 var cr = consumer.Consume(stoppingToken);
 
-                // 4) Desserializa
                 var dto = JsonSerializer.Deserialize<LogMessageDto>(cr.Message.Value, _jsonOptions);
                 if (dto == null)
                 {
@@ -73,7 +56,6 @@ public class KafkaLogConsumer : BackgroundService
                     continue;
                 }
 
-                // 5) Mapeia para entidade Mongo
                 var entry = new LogEntry
                 {
                     Source = dto.Source,
@@ -108,7 +90,7 @@ public class KafkaLogConsumer : BackgroundService
 
                 using var scope = _serviceProvider.CreateScope();
                 var logService = scope.ServiceProvider.GetRequiredService<ILogService>();
-                await logService.SaveAsync(entry);
+                await logService.Save(entry);
 
                 // 6) Commit manual
                 consumer.Commit(cr);

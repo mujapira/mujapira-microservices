@@ -40,9 +40,9 @@
     },
 
     {
-      "UpstreamPathTemplate": "/users/validate",
+      "UpstreamPathTemplate": "/users/validateCredentials",
       "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
-      "DownstreamPathTemplate": "/api/users/validate",
+      "DownstreamPathTemplate": "/api/users/validateCredentials",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -58,7 +58,6 @@
       }
     },
 
-    // <-- rota nova para GET /users/me
     {
       "UpstreamPathTemplate": "/users/me",
       "UpstreamHttpMethod": [ "GET", "OPTIONS" ],

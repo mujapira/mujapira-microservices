@@ -1,19 +1,14 @@
 ﻿using System.Text.Json;
 using UserService.Services;
-using UserService.Models;
+using Contracts.Logs;
+using Contracts.Common;
 
 namespace UserService.Middlewares
 {
-    public class GlobalExceptionLoggingMiddleware
+    public class GlobalExceptionLoggingMiddleware(RequestDelegate next, IKafkaProducer producer)
     {
-        private readonly RequestDelegate _next;
-        private readonly IKafkaProducer _producer;
-
-        public GlobalExceptionLoggingMiddleware(RequestDelegate next, IKafkaProducer producer)
-        {
-            _next = next;
-            _producer = producer;
-        }
+        private readonly RequestDelegate _next = next;
+        private readonly IKafkaProducer _producer = producer;
 
         public async Task InvokeAsync(HttpContext context)
         {
@@ -23,21 +18,21 @@ namespace UserService.Middlewares
             }
             catch (Exception ex)
             {
-                var logEvent = new LogMessage
-                {
-                    Source = "UserService",
-                    Level = "ERROR",
-                    Message = ex.Message,
-                    Metadata = new Dictionary<string, object>
+                var logEvent = new LogMessageDto
+                (
+                    Source: RegisteredMicroservices.UserService,
+                    Level: Contracts.Logs.LogLevel.Error,
+                    Message: ex.Message,
+                    Metadata: new Dictionary<string, object>
                     {
                         { "Path", context.Request.Path },
                         { "StackTrace", ex.StackTrace ?? string.Empty }
                     },
-                    Timestamp = DateTime.UtcNow
-                };
+                    Timestamp: DateTime.UtcNow
+                );
 
                 var json = JsonSerializer.Serialize(logEvent);
-                await _producer.ProduceAsync(json);
+                await _producer.Produce(json);
 
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 context.Response.ContentType = "application/json";

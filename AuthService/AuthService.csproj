@@ -9,6 +9,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Confluent.Kafka" Version="2.11.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.7" />
 		<PackageReference Include="Microsoft.AspNetCore.HostFiltering" Version="2.3.0" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.7" />
@@ -26,6 +27,13 @@
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
 		<PackageReference Include="Npgsql" Version="9.0.3" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Contracts.Auth\Contracts.Auth.csproj" />
+	  <ProjectReference Include="..\Contracts.Common\Contracts.Common.csproj" />
+	  <ProjectReference Include="..\Contracts.Logs\Contracts.Logs.csproj" />
+	  <ProjectReference Include="..\Contracts.Users\Contracts.Users.csproj" />
 	</ItemGroup>
 
 </Project>

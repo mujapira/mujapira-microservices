@@ -1,9 +1,8 @@
-﻿using AuthService.Dtos;
-using System.Security.Claims;
+﻿using System.Security.Claims;
+using Contracts.Users;
 
 namespace AuthService.Services
 {
-
     public interface ITokenService
     {
         string GenerateAccessToken(UserDto user);

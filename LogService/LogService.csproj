@@ -23,4 +23,9 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.13.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Contracts.Common\Contracts.Common.csproj" />
+    <ProjectReference Include="..\Contracts.Logs\Contracts.Logs.csproj" />
+  </ItemGroup>
+
 </Project>

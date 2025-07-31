@@ -3,8 +3,8 @@
     public class AuthRefreshToken
     {
         public int Id { get; set; }
-        public string Token { get; set; }
-        public string JwtId { get; set; }
+        public required string Token { get; set; }
+        public required string JwtId { get; set; }
         public DateTime CreationDate { get; set; }
         public DateTime ExpiryDate { get; set; }
         public bool Used { get; set; }

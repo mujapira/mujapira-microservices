@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using Contracts.Common;
 
-namespace UserService.Services;
+namespace AuthService.Services;
 
 public class KafkaProducer : IKafkaProducer, IDisposable
 {

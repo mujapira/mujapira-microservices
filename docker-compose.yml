@@ -58,8 +58,8 @@ services:
 
   logservice:
     build:
-      context: ./LogService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: LogService/Dockerfile
     # apenas expõe internamente a porta 8080 na rede docker
     expose:
       - "8080"
@@ -103,8 +103,8 @@ services:
 
   userservice:
     build:
-      context: ./UserService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: UserService/Dockerfile
     expose:
       - "8080"
     depends_on:
@@ -126,8 +126,8 @@ services:
 
   authservice:
     build:
-      context: ./AuthService
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: AuthService/Dockerfile
     expose:
       - "8080"
     depends_on:
@@ -147,8 +147,8 @@ services:
 
   apigateway:
     build:
-      context: ./ApiGateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ApiGateway/Dockerfile
     ports:
       - "5000:5000"
     volumes:

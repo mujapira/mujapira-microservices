@@ -29,6 +29,7 @@ public class CorpContext : DbContext
             e.Property(u => u.CreatedAt)
              .HasColumnType("timestamptz")
              .IsRequired();
+            e.Property(u => u.Name).IsRequired();
         });
     }
 }

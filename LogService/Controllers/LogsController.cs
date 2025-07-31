@@ -1,3 +1,4 @@
+using Contracts.Logs;
 using LogService.Models;
 using LogService.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -6,52 +7,36 @@ namespace LogService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class LogsController : ControllerBase
+public class LogsController(ILogService logService) : ControllerBase
 {
-    private readonly ILogService _logService;
-
-    public LogsController(ILogService logService)
-    {
-        _logService = logService;
-    }
+    private readonly ILogService _logService = logService;
 
     [HttpPost]
-    public async Task<IActionResult> Post([FromBody] LogEntry entry)
+    public async Task<IActionResult> Post([FromBody] LogMessageDto dto)
     {
-        if (string.IsNullOrWhiteSpace(entry.Message) || string.IsNullOrWhiteSpace(entry.Source))
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var entry = new LogEntry
         {
-            return BadRequest("Message and Source are required.");
-        }
+            Source = dto.Source,
+            Level = dto.Level,
+            Message = dto.Message,
+            Timestamp = DateTime.UtcNow,
+            Metadata = dto.Metadata
+        };
 
-        entry.Timestamp = DateTime.UtcNow;
-        await _logService.SaveAsync(entry);
-
+        await _logService.Save(entry);
         return Ok(new { success = true });
     }
 
     [HttpGet]
     public async Task<IActionResult> Get(
-         [FromQuery] string? source = null,
-         [FromQuery] int limit = 100)
+        [FromQuery] RegisteredMicroservices? source,
+        [FromQuery] int limit = 100)
     {
-        var entries = await _logService.GetAllAsync(source, limit);
-
-
-        var result = entries.Select(e => new
-        {
-            id = e.Id,
-            timestamp = e.Timestamp,
-            level = e.Level,
-            message = e.Message,
-            source = e.Source,
-            metadata = e.Metadata == null
-                ? null
-                : e.Metadata.ToDictionary(
-                    kv => kv.Key,
-                    kv => kv.Value?.ToString()
-                  )
-        });
-
-        return Ok(result);
+        var sourceFilter = source?.ToString();
+        var logs = await _logService.GetAll(sourceFilter, limit);
+        return Ok(logs);
     }
 }

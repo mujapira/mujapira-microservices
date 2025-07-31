@@ -1,19 +1,18 @@
-﻿using AuthService.Dtos;
-using AuthService.Models;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Contracts.Common;
+using Contracts.Users;
 
 namespace AuthService.Services
 {
 
-    public class TokenService : ITokenService
+    public class TokenService(IOptions<JwtSettings> opts) : ITokenService
     {
-        private readonly AuthJwtSettings _jwt;
-        public TokenService(IOptions<AuthJwtSettings> opts) => _jwt = opts.Value;
+        private readonly JwtSettings _jwt = opts.Value;
 
         public string GenerateAccessToken(UserDto user)
         {

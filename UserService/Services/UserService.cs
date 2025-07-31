@@ -1,150 +1,157 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Contracts.Users;
+using Contracts.Logs;
 using UserService.Data;
 using UserService.Models;
+using Contracts.Common;
 
 namespace UserService.Services;
 
-public class UserService : IUserService
+public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserService
 {
-    private readonly CorpContext _ctx;
-    private readonly IKafkaProducer _producer;
+    private readonly CorpContext _ctx = ctx;
+    private readonly IKafkaProducer _producer = producer;
 
-    public UserService(CorpContext ctx, IKafkaProducer producer)
-    {
-        _ctx = ctx;
-        _producer = producer;
-    }
+    private static UserDto ToDto(User u)
+        => new(u.Id, u.Email, u.Name, u.IsAdmin);
 
-    public async Task<IEnumerable<User>> GetAllAsync()
+    public async Task<IEnumerable<UserDto>> GetAll()
     {
         var users = await _ctx.Users
-                             .AsNoTracking()
-                             .ToListAsync();
+                              .AsNoTracking()
+                              .ToListAsync();
 
-        var logEvent = new LogMessage()
-        {
-            Source = "UserService",
-            Level = "INFO",
-            Message = "Listagem de usuários",
-            Metadata = new Dictionary<string, object>
-            {
-                { "Count", users.Count }
-            },
-            Timestamp = DateTime.UtcNow
-        };
-        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+        var logDto = new LogMessageDto(
+            Source: RegisteredMicroservices.UserService,
+            Level: Contracts.Logs.LogLevel.Info,
+            Message: "Listagem de usuários",
+            Timestamp: DateTime.UtcNow,
+            Metadata: new Dictionary<string, object> { ["Count"] = users.Count }
+        );
 
-        return users;
+        await _producer.Produce(JsonSerializer.Serialize(logDto));
+
+        return users.Select(ToDto);
     }
 
-    public async Task<User?> GetByIdAsync(Guid id)
+    public async Task<UserDto?> GetById(Guid id)
     {
         var user = await _ctx.Users.FindAsync(id);
 
-        var logEvent = new LogMessage()
-        {
-            Source = "UserService",
-            Level = "INFO",
-            Message = "Busca de usuário por ID",
-            Metadata = new Dictionary<string, object>
+        var logDto = new LogMessageDto(
+             Source: RegisteredMicroservices.UserService,
+            Level: Contracts.Logs.LogLevel.Info,
+            Message: "Busca de usuário por ID",
+            Timestamp: DateTime.UtcNow,
+            Metadata: new Dictionary<string, object>
             {
-                { "UserId", id.ToString() },
-                { "Found", (user != null).ToString() }
-            },
-            Timestamp = DateTime.UtcNow
-        };
-        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+                ["UserId"] = id,
+                ["Found"] = user != null
+            }
+        );
+        await _producer.Produce(JsonSerializer.Serialize(logDto));
 
-        return user;
+        return user is null ? null : ToDto(user);
     }
 
-    public async Task<User> CreateAsync(string email, string password, bool isAdmin)
+    public async Task<UserDto> Create(CreateUserDto dto)
     {
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = email,
-            Password = BCrypt.Net.BCrypt.HashPassword(password),
-            IsAdmin = isAdmin,
+            Email = dto.Email,
+            Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            Name = dto.Name,
+            IsAdmin = dto.IsAdmin,
             CreatedAt = DateTime.UtcNow
         };
 
         _ctx.Users.Add(user);
         await _ctx.SaveChangesAsync();
 
-        var logEvent = new LogMessage()
-        {
-            Source = "UserService",
-            Level = "INFO",
-            Message = "Usuário criado",
-            Metadata = new Dictionary<string, object>
+        var logDto = new LogMessageDto(
+             Source: RegisteredMicroservices.UserService,
+            Level: Contracts.Logs.LogLevel.Info,
+            Message: "Usuário criado",
+            Timestamp: DateTime.UtcNow,
+            Metadata: new Dictionary<string, object>
             {
-                { "UserId", user.Id.ToString() },
-                { "Email", user.Email },
-                { "IsAdmin", user.IsAdmin.ToString() }
-            },
-            Timestamp = DateTime.UtcNow
-        };
-        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+                ["UserId"] = user.Id,
+                ["Email"] = user.Email,
+                ["IsAdmin"] = user.IsAdmin
+            }
+        );
+        await _producer.Produce(JsonSerializer.Serialize(logDto));
 
-        return user;
+        return ToDto(user);
     }
 
-    public async Task UpdateAsync(User user, string? newPassword = null)
+    public async Task Update(Guid id, UpdateUserDto dto)
     {
-        if (!string.IsNullOrWhiteSpace(newPassword))
-        {
-            user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
-        }
+        var user = await _ctx.Users.FindAsync(id)
+                   ?? throw new KeyNotFoundException($"Usuário {id} não encontrado");
+
+        user.Email = dto.Email;
+        user.Name = dto.Name;
+        user.IsAdmin = dto.IsAdmin;
+        if (!string.IsNullOrWhiteSpace(dto.Password))
+            user.Password = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
         _ctx.Users.Update(user);
         await _ctx.SaveChangesAsync();
 
-        var logEvent = new LogMessage()
-        {
-            Source = "UserService",
-            Level = "INFO",
-            Message = "Usuário atualizado",
-            Metadata = new Dictionary<string, object>
-            {
-                { "UserId", user.Id.ToString() }
-            },
-            Timestamp = DateTime.UtcNow
-        };
-        await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+        var logDto = new LogMessageDto(
+             Source: RegisteredMicroservices.UserService,
+            Level: Contracts.Logs.LogLevel.Info,
+            Message: "Usuário atualizado",
+            Timestamp: DateTime.UtcNow,
+            Metadata: new Dictionary<string, object> { ["UserId"] = id }
+        );
+        await _producer.Produce(JsonSerializer.Serialize(logDto));
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task Delete(Guid id)
     {
         var user = await _ctx.Users.FindAsync(id);
-        if (user is not null)
+        if (user != null)
         {
             _ctx.Users.Remove(user);
             await _ctx.SaveChangesAsync();
 
-            var logEvent = new LogMessage()
-            {
-                Source = "UserService",
-                Level = "INFO",
-                Message = "Usuário deletado",
-                Metadata = new Dictionary<string, object>
-                {
-                    { "UserId", id.ToString() }
-                },
-                Timestamp = DateTime.UtcNow
-            };
-            await _producer.ProduceAsync(JsonSerializer.Serialize(logEvent));
+            var logDto = new LogMessageDto(
+                 Source: RegisteredMicroservices.UserService,
+                Level: Contracts.Logs.LogLevel.Info,
+                Message: "Usuário deletado",
+                Timestamp: DateTime.UtcNow,
+                Metadata: new Dictionary<string, object> { ["UserId"] = id }
+            );
+            await _producer.Produce(JsonSerializer.Serialize(logDto));
         }
     }
 
-    public async Task<User?> ValidateCredentialsAsync(string email, string password)
+    public async Task<UserDto?> ValidateCredentials(ValidateUserDto dto)
     {
-        var user = await _ctx.Users.FirstOrDefaultAsync(u => u.Email == email);
-        if (user is null) return null;
+        var user = await _ctx.Users
+                             .AsNoTracking()
+                             .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-        return BCrypt.Net.BCrypt.Verify(password, user.Password)
-               ? user
-               : null;
+        var isValid = user != null &&
+                      BCrypt.Net.BCrypt.Verify(dto.Password, user.Password);
+
+        var logDto = new LogMessageDto(
+             Source: RegisteredMicroservices.UserService,
+            Level: isValid ? Contracts.Logs.LogLevel.Info : Contracts.Logs.LogLevel.Warn,
+            Message: "Validação de credenciais",
+            Timestamp: DateTime.UtcNow,
+            Metadata: new Dictionary<string, object>
+            {
+                ["Email"] = dto.Email,
+                ["Success"] = isValid
+            }
+        );
+        await _producer.Produce(JsonSerializer.Serialize(logDto));
+
+        return isValid ? ToDto(user!) : null;
     }
 }

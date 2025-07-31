@@ -1,14 +1,13 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using System;
 using System.Text.Json.Serialization;
+using Contracts.Logs;
 
 namespace LogService.Models;
 
 public class LogEntry
 {
-    [BsonId]
-    [BsonRepresentation(BsonType.ObjectId)]
+    [BsonId, BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
 
     [JsonPropertyName("timestamp")]
@@ -17,15 +16,19 @@ public class LogEntry
 
     [JsonPropertyName("level")]
     [BsonElement("level")]
-    public string Level { get; set; } = "INFO";
+    [BsonRepresentation(BsonType.String)]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public Contracts.Logs.LogLevel Level { get; set; } = Contracts.Logs.LogLevel.Info;
 
     [JsonPropertyName("message")]
     [BsonElement("message")]
-    public string Message { get; set; } = "";
+    public string Message { get; set; } = string.Empty;
 
     [JsonPropertyName("source")]
     [BsonElement("source")]
-    public string? Source { get; set; }
+    [BsonRepresentation(BsonType.String)]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public RegisteredMicroservices Source { get; set; }
 
     [JsonPropertyName("metadata")]
     [BsonElement("metadata")]
