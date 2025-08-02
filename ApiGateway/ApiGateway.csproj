@@ -31,4 +31,8 @@
 		<Folder Include="Controllers\" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <ProjectReference Include="..\Contracts.Common\Contracts.Common.csproj" />
+	</ItemGroup>
+
 </Project>

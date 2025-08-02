@@ -5,6 +5,7 @@ using Contracts.Logs;
 using Contracts.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace AuthService.Services
@@ -74,55 +75,28 @@ namespace AuthService.Services
             return AuthResult.SuccessResult(access, refresh);
         }
 
-        public async Task<AuthResult> RefreshToken(RefreshTokenRequest request)
+        public async Task<AuthResult> RefreshToken(RefreshTokenRequest req)
         {
-            var stored = await _db.RefreshTokens
-                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken);
-
-            if (stored is null
-             || stored.Invalidated
-             || stored.Used
-             || stored.ExpiryDate < DateTime.UtcNow)
-            {
-                var logDto = new LogMessageDto(
-                    Source: RegisteredMicroservices.AuthService,
-                    Level: Contracts.Logs.LogLevel.Warn,
-                    Message: "Refresh falhou: token inválido",
-                    Timestamp: DateTime.UtcNow,
-                    Metadata: new Dictionary<string, object>
-                    {
-                        ["RefreshToken"] = request.RefreshToken
-                    }
-                );
-                await _producer.Produce(JsonSerializer.Serialize(logDto));
+            // valida o refresh token no DB
+            var stored = await _db.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == req.RefreshToken);
+            if (stored == null || stored.Invalidated || stored.Used || stored.ExpiryDate < DateTime.UtcNow)
                 return AuthResult.Failure("Refresh token inválido");
-            }
 
+            // marca como usado
             stored.Used = true;
             _db.RefreshTokens.Update(stored);
             await _db.SaveChangesAsync();
 
-            var user = await _userService.GetById(stored.UserId);
-            if (user is null)
-            {
-                var logFail = new LogMessageDto(
-                    Source: RegisteredMicroservices.AuthService,
-                    Level: Contracts.Logs.LogLevel.Warn,
-                    Message: "Refresh falhou: usuário não encontrado",
-                    Timestamp: DateTime.UtcNow,
-                    Metadata: new Dictionary<string, object>
-                    {
-                        ["UserId"] = stored.UserId
-                    }
-                );
-                await _producer.Produce(JsonSerializer.Serialize(logFail));
-                return AuthResult.Failure("Usuário não encontrado");
-            }
+            // recupera dados do usuário do próprio registro
+            var userDto = await _userService.GetById(stored.UserId)
+                          ?? throw new InvalidOperationException("Usuário não encontrado");
 
-            var newAccess = _tokenService.GenerateAccessToken(user);
+            // gera novos tokens
+            var newAccess = _tokenService.GenerateAccessToken(userDto);
             var newRefresh = _tokenService.GenerateRefreshToken();
             var now = DateTime.UtcNow;
 
+            // persiste novo refresh
             await _db.RefreshTokens.AddAsync(new AuthRefreshToken
             {
                 Token = newRefresh,
@@ -131,21 +105,9 @@ namespace AuthService.Services
                 ExpiryDate = now.AddDays(_jwt.RefreshTokenExpirationDays),
                 Used = false,
                 Invalidated = false,
-                UserId = user.Id
+                UserId = userDto.Id
             });
             await _db.SaveChangesAsync();
-
-            var logSuccess = new LogMessageDto(
-                Source: RegisteredMicroservices.AuthService,
-                Level: Contracts.Logs.LogLevel.Info,
-                Message: "Refresh token bem-sucedido",
-                Timestamp: now,
-                Metadata: new Dictionary<string, object>
-                {
-                    ["UserId"] = user.Id
-                }
-            );
-            await _producer.Produce(JsonSerializer.Serialize(logSuccess));
 
             return AuthResult.SuccessResult(newAccess, newRefresh);
         }

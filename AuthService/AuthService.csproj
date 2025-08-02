@@ -22,6 +22,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.7" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.7" />
 		<PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.13.0" />
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />

@@ -20,6 +20,7 @@ public class UsersController(IUserService userService) : ControllerBase
         return Ok(users);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<UserDto>> GetById(Guid id)
     {

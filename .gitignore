@@ -361,3 +361,14 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# secrets / real envs
+.env
+.env.production
+.env.*.local
+.env.local
+
+/redis/redis.conf
+
+# keep templates
+!.env.example
