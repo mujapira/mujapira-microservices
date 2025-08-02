@@ -81,7 +81,7 @@ jobs:
                 image: mujapira/logservice:${{ steps.tag.outputs.TAG }}
               apigateway:
                 image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
-            EOF
+          EOF
 
       - name: Validate composed docker config
         run: |
