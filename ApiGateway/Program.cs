@@ -18,28 +18,28 @@ builder.Configuration
 
 var env = builder.Environment;
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("DynamicCors", policy =>
-    {
-        if (env.IsDevelopment())
-        {
-            policy
-                .SetIsOriginAllowed(_ => true)
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
-        else
-        {
-            policy
-                .WithOrigins("https://mujapira.com")
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
-    });
-});
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("DynamicCors", policy =>
+//    {
+//        if (env.IsDevelopment())
+//        {
+//            policy
+//                .SetIsOriginAllowed(_ => true)
+//                .AllowAnyHeader()
+//                .AllowAnyMethod()
+//                .AllowCredentials();
+//        }
+//        else
+//        {
+//            policy
+//                .WithOrigins("https://mujapira.com")
+//                .AllowAnyHeader()
+//                .AllowAnyMethod()
+//                .AllowCredentials();
+//        }
+//    });
+//});
 
 builder.Services.AddHealthChecks();
 
@@ -90,7 +90,7 @@ var app = builder.Build();
 
 app.MapHealthChecks("/health");
 
-app.UseCors("DynamicCors");
+//app.UseCors("DynamicCors");
 
 app.UseAuthentication();
 app.UseAuthorization();
