@@ -1,26 +1,6 @@
 {
   "Routes": [
     {
-      "UpstreamPathTemplate": "/{everything}",
-      "UpstreamHttpMethod": [ "OPTIONS" ],
-      "DownstreamPathTemplate": "/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "localhost",
-          "Port": 80
-        }
-      ],
-      "Priority": 999,
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
-      }
-    },
-
-    {
       "UpstreamPathTemplate": "/users",
       "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
       "DownstreamPathTemplate": "/api/users",
