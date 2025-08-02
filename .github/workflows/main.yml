@@ -2,7 +2,7 @@ name: CI/CD Backend Self-Hosted
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
 
 jobs:
   build_and_deploy:
