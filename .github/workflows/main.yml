@@ -1,0 +1,97 @@
+name: CI/CD Backend Self-Hosted
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  # se usar nomes de imagem locais, pode manter prefixo simples
+  IMAGE_PREFIX: mujapira  # opcional, só para nomear: mujapira/authservice:TAG
+
+jobs:
+  build_and_deploy:
+    name: Build & Deploy Microserviços
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set TAG
+        id: tag
+        run: |
+          echo "TAG=$(echo ${GITHUB_SHA} | head -c7)" >> "$GITHUB_OUTPUT"
+
+      - name: Build AuthService image
+        run: |
+          docker build -t ${IMAGE_PREFIX}/authservice:${{ steps.tag.outputs.TAG }} -f AuthService/Dockerfile .
+      
+      - name: Build UserService image
+        run: |
+          docker build -t ${IMAGE_PREFIX}/userservice:${{ steps.tag.outputs.TAG }} -f UserService/Dockerfile .
+
+      - name: Build LogService image
+        run: |
+          docker build -t ${IMAGE_PREFIX}/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
+
+      - name: Build ApiGateway image
+        run: |
+          docker build -t ${IMAGE_PREFIX}/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
+
+      - name: Render .env (local) from secrets
+        run: |
+          cat <<EOF > .env
+            ASPNETCORE_ENVIRONMENT=Production
+            ASPNETCORE_URLS=http://+:5000
+            
+            # JWT
+            JwtSettings__Secret=${{ secrets.JWT_SECRET }}
+            JwtSettings__Issuer=AuthService
+            JwtSettings__Audience=MyApp
+            
+            # Auth Postgres
+            AUTH_POSTGRES_DB=AuthServiceDb
+            AUTH_POSTGRES_USER=auth_prod_user
+            AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
+            
+            # User Postgres
+            USER_POSTGRES_DB=UserServiceDb
+            USER_POSTGRES_USER=user_prod
+            USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
+            
+            # Redis
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_HOST=redis
+            REDIS_PORT=6379
+            
+            # Mongo
+            MONGO_ROOT_USER=rootadmin
+            MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
+            LOG_DB_NAME=LogServiceDb
+            LOG_DB_USER=logservice
+            LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
+            MongoDb__ConnectionString=mongodb://logservice:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/LogServiceDb?authSource=LogServiceDb
+            MongoDb__DatabaseName=LogServiceDb
+            MongoDb__CollectionName=Logs
+            EOF
+
+      - name: Deploy with Docker Compose
+        run: |
+          # copia .env para o diretório de deploy se for outro
+          cp .env ./docker-compose.override.yml ./  # ajusta se compose estiver em subpasta
+          docker compose pull || true  # se estiver usando imagens remotas
+          docker compose up -d --remove-orphans
+
+      - name: Health check gateway
+        run: |
+          for i in {1..15}; do
+            if curl --fail http://localhost:5000/health >/dev/null 2>&1; then
+              echo "Gateway healthy"
+              exit 0
+            fi
+            echo "Aguardando gateway... tentativa $i"
+            sleep 2
+          done
+          echo "Healthcheck falhou"
+          docker compose ps
+          docker compose logs authservice userservice apigateway
+          exit 1
