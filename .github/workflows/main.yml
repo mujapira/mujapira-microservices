@@ -17,10 +17,10 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker build -t mujapira/authservice:${{ steps.tag.outputs.TAG }} -f AuthService/Dockerfile .
-          docker build -t mujapira/userservice:${{ steps.tag.outputs.TAG }} -f UserService/Dockerfile .
-          docker build -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
-          docker build -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
+          docker build --no-cache -t mujapira/authservice:${{ steps.tag.outputs.TAG }} -f AuthService/Dockerfile .
+          docker build --no-cache -t mujapira/userservice:${{ steps.tag.outputs.TAG }} -f UserService/Dockerfile .
+          docker build --no-cache -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
+          docker build --no-cache -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
 
       - name: Render .env from secrets
         run: |
