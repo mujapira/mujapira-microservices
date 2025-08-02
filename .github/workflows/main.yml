@@ -25,38 +25,38 @@ jobs:
       - name: Render .env from secrets
         run: |
           cat <<EOF > .env
-            ASPNETCORE_ENVIRONMENT=Production
-            ASPNETCORE_URLS=http://+:5000
-            
-            # JWT
-            JwtSettings__Secret=${{ secrets.JWT_SECRET }}
-            JwtSettings__Issuer=AuthService
-            JwtSettings__Audience=MyApp
-            
-            # Auth Postgres
-            AUTH_POSTGRES_DB=AuthServiceDb
-            AUTH_POSTGRES_USER=auth_prod_user
-            AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
-            
-            # User Postgres
-            USER_POSTGRES_DB=UserServiceDb
-            USER_POSTGRES_USER=user_prod
-            USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
-            
-            # Redis
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            REDIS_HOST=redis
-            REDIS_PORT=6379
-            
-            # Mongo
-            MONGO_ROOT_USER=rootadmin
-            MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
-            LOG_DB_NAME=LogServiceDb
-            LOG_DB_USER=logservice
-            LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
-            MongoDb__ConnectionString=mongodb://logservice:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/LogServiceDb?authSource=LogServiceDb
-            MongoDb__DatabaseName=LogServiceDb
-            MongoDb__CollectionName=Logs
+              ASPNETCORE_ENVIRONMENT=Production
+              ASPNETCORE_URLS=http://+:5000
+              
+              # JWT
+              JwtSettings__Secret=${{ secrets.JWT_SECRET }}
+              JwtSettings__Issuer=AuthService
+              JwtSettings__Audience=MyApp
+              
+              # Auth Postgres
+              AUTH_POSTGRES_DB=AuthServiceDb
+              AUTH_POSTGRES_USER=auth_prod_user
+              AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
+              
+              # User Postgres
+              USER_POSTGRES_DB=UserServiceDb
+              USER_POSTGRES_USER=user_prod
+              USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
+              
+              # Redis
+              REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+              REDIS_HOST=redis
+              REDIS_PORT=6379
+              
+              # Mongo
+              MONGO_ROOT_USER=rootadmin
+              MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
+              LOG_DB_NAME=LogServiceDb
+              LOG_DB_USER=logservice
+              LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
+              MongoDb__ConnectionString=mongodb://logservice:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/LogServiceDb?authSource=LogServiceDb
+              MongoDb__DatabaseName=LogServiceDb
+              MongoDb__CollectionName=Logs
             EOF
 
       - name: Create override with current tag
