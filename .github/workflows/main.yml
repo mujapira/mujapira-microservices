@@ -94,6 +94,10 @@ jobs:
           docker compose pull || true
           docker compose up -d --force-recreate --remove-orphans
 
+      - name: Clean up old Docker images
+        run: |
+          docker image prune -f
+
       # opcional: reativar depois para garantir que o gateway subiu
       # - name: Healthcheck gateway
       #   run: |
