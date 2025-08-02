@@ -10,13 +10,7 @@
           "Host": "userservice",
           "Port": 8080
         }
-      ],
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "POST", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
-      }
+      ]
     },
 
     {
@@ -29,13 +23,7 @@
           "Host": "userservice",
           "Port": 8080
         }
-      ],
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "POST", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
-      }
+      ]
     },
 
 
@@ -50,13 +38,7 @@
           "Port": 8080
         }
       ],
-      "Priority": 1, // mais específica, casca antes da genérica
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "GET", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
-      }
+      "Priority": 1,
     },
 
     {
@@ -72,12 +54,6 @@
       ],
       "AuthenticationOptions": {
         "AuthenticationProviderKey": "JwtBearer"
-      },
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "GET", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
       }
     },
 
@@ -97,12 +73,6 @@
       },
       "RouteClaimsRequirement": {
         "role": "Admin"
-      },
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "GET", "PUT", "DELETE", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
       }
     },
 
@@ -122,12 +92,6 @@
       },
       "RouteClaimsRequirement": {
         "role": "Admin"
-      },
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
       }
     },
 
@@ -141,13 +105,7 @@
           "Host": "authservice",
           "Port": 8080
         }
-      ],
-      "CorsOptions": {
-        "AllowCredentials": true,
-        "AllowedOrigins": [ "http://localhost:3000", "https://mujapira.com" ],
-        "AllowedMethods": [ "POST", "GET", "OPTIONS" ],
-        "AllowedHeaders": [ "*" ]
-      }
+      ]
     }
   ],
 
