@@ -47,10 +47,7 @@
           "Host": "userservice",
           "Port": 8080
         }
-      ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "JwtBearer"
-      }
+      ]
     },
     {
       "UpstreamPathTemplate": "/users/{everything}",
@@ -62,13 +59,7 @@
           "Host": "userservice",
           "Port": 8080
         }
-      ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "JwtBearer"
-      },
-      "RouteClaimsRequirement": {
-        "role": "Admin"
-      }
+      ]
     },
     {
       "UpstreamPathTemplate": "/logs/{everything}",
@@ -80,13 +71,7 @@
           "Host": "logservice",
           "Port": 8080
         }
-      ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "JwtBearer"
-      },
-      "RouteClaimsRequirement": {
-        "role": "Admin"
-      }
+      ]
     },
     {
       "UpstreamPathTemplate": "/auth/{everything}",
