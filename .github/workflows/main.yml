@@ -2,7 +2,7 @@ name: CI/CD Backend Self-Hosted
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 env:
   # se usar nomes de imagem locais, pode manter prefixo simples
