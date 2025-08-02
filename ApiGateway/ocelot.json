@@ -2,7 +2,7 @@
   "Routes": [
     {
       "UpstreamPathTemplate": "/users",
-      "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "POST" ],
       "DownstreamPathTemplate": "/api/users",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -12,10 +12,9 @@
         }
       ]
     },
-
     {
       "UpstreamPathTemplate": "/users/validateCredentials",
-      "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "POST" ],
       "DownstreamPathTemplate": "/api/users/validateCredentials",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -25,11 +24,9 @@
         }
       ]
     },
-
-
     {
       "UpstreamPathTemplate": "/users/{id}",
-      "UpstreamHttpMethod": [ "GET", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "GET" ],
       "DownstreamPathTemplate": "/api/users/{id}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -38,12 +35,11 @@
           "Port": 8080
         }
       ],
-      "Priority": 1,
+      "Priority": 1
     },
-
     {
       "UpstreamPathTemplate": "/users/me",
-      "UpstreamHttpMethod": [ "GET", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "GET" ],
       "DownstreamPathTemplate": "/api/users/me",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -56,10 +52,9 @@
         "AuthenticationProviderKey": "JwtBearer"
       }
     },
-
     {
       "UpstreamPathTemplate": "/users/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
       "DownstreamPathTemplate": "/api/users/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -75,10 +70,9 @@
         "role": "Admin"
       }
     },
-
     {
       "UpstreamPathTemplate": "/logs/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
       "DownstreamPathTemplate": "/api/logs/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -94,10 +88,9 @@
         "role": "Admin"
       }
     },
-
     {
       "UpstreamPathTemplate": "/auth/{everything}",
-      "UpstreamHttpMethod": [ "POST", "GET", "OPTIONS" ],
+      "UpstreamHttpMethod": [ "POST", "GET" ],
       "DownstreamPathTemplate": "/api/auth/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -108,7 +101,6 @@
       ]
     }
   ],
-
   "GlobalConfiguration": {
     "BaseUrl": "http://localhost:5000",
     "RequestIdKey": "OcRequestId"
