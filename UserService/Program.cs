@@ -29,6 +29,7 @@ builder.Services.Configure<HostFilteringOptions>(
     configuration.GetSection("HostFiltering")
 );
 
+//teste
 // healthchecks
 
 builder.Services.AddHealthChecks();
