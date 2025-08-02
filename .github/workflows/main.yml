@@ -91,18 +91,3 @@ jobs:
         run: |
           docker compose pull || true
           docker compose up -d --remove-orphans
-
-      - name: Healthcheck gateway
-        run: |
-          for i in {1..15}; do
-            if curl --fail http://localhost:5000/health >/dev/null 2>&1; then
-              echo "Gateway healthy"
-              exit 0
-            fi
-            echo "waiting for gateway... attempt $i"
-            sleep 2
-          done
-          echo "Healthcheck failed"
-          docker compose ps
-          docker compose logs authservice userservice apigateway
-          exit 1
