@@ -2,11 +2,11 @@ name: CI/CD Backend Self-Hosted
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build_and_deploy:
-    runs-on: [self-hosted]  # ou [self-hosted, backend] se tiver label
+    runs-on: [self-hosted]  # ou [self-hosted, backend] se usar label específico
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
             REDIS_HOST=redis
             REDIS_PORT=6379
             
-            # Zookeeper/Kafka (evita warnings)
+            # Zookeeper/Kafka (reduz warnings)
             KAFKA_BROKER_ID=1
             KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
             KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
@@ -70,8 +70,7 @@ jobs:
 
       - name: Create docker-compose.override.yml with current tag
         run: |
-          cat > docker-compose.override.yml <<'EOF'
-            version: "3.9"
+          cat <<'EOF' > docker-compose.override.yml
             services:
               authservice:
                 image: mujapira/authservice:${{ steps.tag.outputs.TAG }}
@@ -83,6 +82,9 @@ jobs:
                 image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
           EOF
 
+          echo "=== override file content ==="
+          cat docker-compose.override.yml
+
       - name: Validate composed docker config
         run: |
           docker compose config
@@ -91,3 +93,36 @@ jobs:
         run: |
           docker compose pull || true
           docker compose up -d --remove-orphans
+
+      # opcional: reativar depois para garantir que o gateway subiu
+      # - name: Healthcheck gateway
+      #   run: |
+      #     for i in {1..15}; do
+      #       if curl --fail http://localhost:5000/health >/dev/null 2>&1; then
+      #         echo "Gateway healthy"
+      #         exit 0
+      #       fi
+      #       echo "waiting for gateway... attempt $i"
+      #       sleep 2
+      #     done
+      #     echo "Healthcheck failed"
+      #     docker compose ps
+      #     docker compose logs authservice userservice apigateway
+      #     exit 1
+
+      # opcional: smoke test básico (requer usuário de teste existente)
+      # - name: Smoke test login + protected call
+      #   env:
+      #     TEST_EMAIL: test@example.com
+      #     TEST_PASSWORD: testpass
+      #   run: |
+      #     set -e
+      #     login_resp=$(curl -s -c cookies.txt -X POST http://localhost:5000/api/auth/login \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${TEST_PASSWORD}\"}")
+      #     access=$(echo "$login_resp" | jq -r '.accessToken')
+      #     if [ -z "$access" ] || [ "$access" = "null" ]; then
+      #       echo "Login failed:" "$login_resp"
+      #       exit 1
+      #     fi
+      #     curl -H "Authorization: Bearer $access" http://localhost:5000/users/me
