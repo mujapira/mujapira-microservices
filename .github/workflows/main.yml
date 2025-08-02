@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_and_deploy:
-    runs-on: [self-hosted]  # ou apenas self-hosted se não usar label
+    runs-on: [self-hosted]  # ou [self-hosted, backend] se tiver label
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,44 +24,53 @@ jobs:
 
       - name: Render .env from secrets
         run: |
-          cat <<EOF > .env
-              ASPNETCORE_ENVIRONMENT=Production
-              ASPNETCORE_URLS=http://+:5000
-              
-              # JWT
-              JwtSettings__Secret=${{ secrets.JWT_SECRET }}
-              JwtSettings__Issuer=AuthService
-              JwtSettings__Audience=MyApp
-              
-              # Auth Postgres
-              AUTH_POSTGRES_DB=AuthServiceDb
-              AUTH_POSTGRES_USER=auth_prod_user
-              AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
-              
-              # User Postgres
-              USER_POSTGRES_DB=UserServiceDb
-              USER_POSTGRES_USER=user_prod
-              USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
-              
-              # Redis
-              REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-              REDIS_HOST=redis
-              REDIS_PORT=6379
-              
-              # Mongo
-              MONGO_ROOT_USER=rootadmin
-              MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
-              LOG_DB_NAME=LogServiceDb
-              LOG_DB_USER=logservice
-              LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
-              MongoDb__ConnectionString=mongodb://logservice:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/LogServiceDb?authSource=LogServiceDb
-              MongoDb__DatabaseName=LogServiceDb
-              MongoDb__CollectionName=Logs
-            EOF
+          cat <<'EOF' > .env
+            ASPNETCORE_ENVIRONMENT=Production
+            ASPNETCORE_URLS=http://+:5000
+            
+            # JWT
+            JwtSettings__Secret=${{ secrets.JWT_SECRET }}
+            JwtSettings__Issuer=AuthService
+            JwtSettings__Audience=MyApp
+            
+            # Auth Postgres
+            AUTH_POSTGRES_DB=AuthServiceDb
+            AUTH_POSTGRES_USER=auth_prod_user
+            AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
+            
+            # User Postgres
+            USER_POSTGRES_DB=UserServiceDb
+            USER_POSTGRES_USER=user_prod
+            USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
+            
+            # Redis
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_HOST=redis
+            REDIS_PORT=6379
+            
+            # Zookeeper/Kafka (evita warnings)
+            KAFKA_BROKER_ID=1
+            KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+            KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
+            KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+            ZOOKEEPER_CLIENT_PORT=2181
+            ZOOKEEPER_TICK_TIME=2000
+            
+            # Mongo
+            MONGO_ROOT_USER=rootadmin
+            MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
+            LOG_DB_NAME=LogServiceDb
+            LOG_DB_USER=logservice
+            LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
+            MongoDb__ConnectionString=mongodb://logservice:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/LogServiceDb?authSource=LogServiceDb
+            MongoDb__DatabaseName=LogServiceDb
+            MongoDb__CollectionName=Logs
+          EOF
 
-      - name: Create override with current tag
+      - name: Create docker-compose.override.yml with current tag
         run: |
-          cat > docker-compose.override.yml <<EOF
+          cat > docker-compose.override.yml <<'EOF'
             version: "3.9"
             services:
               authservice:
@@ -73,7 +82,11 @@ jobs:
               apigateway:
                 image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
             EOF
-            
+
+      - name: Validate composed docker config
+        run: |
+          docker compose config
+
       - name: Deploy stack
         run: |
           docker compose pull || true
@@ -86,7 +99,7 @@ jobs:
               echo "Gateway healthy"
               exit 0
             fi
-            echo "Waiting for gateway... attempt $i"
+            echo "waiting for gateway... attempt $i"
             sleep 2
           done
           echo "Healthcheck failed"
