@@ -17,10 +17,10 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker build -t mujapira/authservice:${{ steps.tag.outputs.TAG }} -f AuthService/Dockerfile .
-          docker build -t mujapira/userservice:${{ steps.tag.outputs.TAG }} -f UserService/Dockerfile .
-          docker build -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
-          docker build -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
+          docker build --no-cache -t mujapira/authservice:${{ steps.tag.outputs.TAG }} -f AuthService/Dockerfile .
+          docker build --no-cache -t mujapira/userservice:${{ steps.tag.outputs.TAG }} -f UserService/Dockerfile .
+          docker build --no-cache -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
+          docker build --no-cache -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
 
       - name: Render .env from secrets
         run: |
@@ -97,36 +97,3 @@ jobs:
       - name: Clean up old Docker images
         run: |
           docker image prune -f
-
-      # opcional: reativar depois para garantir que o gateway subiu
-      # - name: Healthcheck gateway
-      #   run: |
-      #     for i in {1..15}; do
-      #       if curl --fail http://localhost:5000/health >/dev/null 2>&1; then
-      #         echo "Gateway healthy"
-      #         exit 0
-      #       fi
-      #       echo "waiting for gateway... attempt $i"
-      #       sleep 2
-      #     done
-      #     echo "Healthcheck failed"
-      #     docker compose ps
-      #     docker compose logs authservice userservice apigateway
-      #     exit 1
-
-      # opcional: smoke test básico (requer usuário de teste existente)
-      # - name: Smoke test login + protected call
-      #   env:
-      #     TEST_EMAIL: test@example.com
-      #     TEST_PASSWORD: testpass
-      #   run: |
-      #     set -e
-      #     login_resp=$(curl -s -c cookies.txt -X POST http://localhost:5000/api/auth/login \
-      #       -H "Content-Type: application/json" \
-      #       -d "{\"email\":\"${TEST_EMAIL}\",\"password\":\"${TEST_PASSWORD}\"}")
-      #     access=$(echo "$login_resp" | jq -r '.accessToken')
-      #     if [ -z "$access" ] || [ "$access" = "null" ]; then
-      #       echo "Login failed:" "$login_resp"
-      #       exit 1
-      #     fi
-      #     curl -H "Authorization: Bearer $access" http://localhost:5000/users/me
