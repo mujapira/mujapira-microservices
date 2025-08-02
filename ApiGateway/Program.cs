@@ -1,11 +1,14 @@
-﻿using System;
-using System.Linq;
-using System.Text;
-using System.Security.Claims;
+﻿using Contracts.Common;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HostFiltering;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,25 +46,31 @@ var env = builder.Environment;
 
 builder.Services.AddHealthChecks();
 
-var jwtSection = builder.Configuration.GetSection("JwtSettings");
-var jwtSecret = jwtSection["Secret"] ?? throw new InvalidOperationException("JWT Secret is not configured.");
-var jwtIssuer = jwtSection["Issuer"] ?? throw new InvalidOperationException("JWT Issuer is not configured.");
-var jwtAudience = jwtSection["Audience"] ?? throw new InvalidOperationException("JWT Audience is not configured.");
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
+    ?? throw new InvalidOperationException("Seção JwtSettings está ausente.");
+
+if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
+    throw new InvalidOperationException("JWT Secret não está configurado.");
+
+if (jwtSettings.Secret.Length < 16)
+    throw new InvalidOperationException("JWT Secret é muito curto; use um secreto forte e aleatório.");
+
 
 builder.Services
-    .AddAuthentication("JwtBearer")
-    .AddJwtBearer("JwtBearer", options =>
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = env.IsProduction();
+        options.RequireHttpsMetadata = env.IsProduction(); // exige HTTPS metadata em produção
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
+            ValidIssuer = jwtSettings.Issuer,
             ValidateAudience = true,
-            ValidAudience = jwtAudience,
+            ValidAudience = jwtSettings.Audience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
             ValidateIssuerSigningKey = true,
             RoleClaimType = ClaimTypes.Role
         };
