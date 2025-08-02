@@ -89,9 +89,9 @@ var loggerFactory = LoggerFactory.Create(logging =>
 var logger = loggerFactory.CreateLogger("Startup");
 
 if (env.IsDevelopment())
-    logger.LogInformation("CORS policy: development mode, allowing all origins.");
+    logger.LogInformation("CORS policy: BBBBBBBBBB development mode, allowing all origins.");
 else
-    logger.LogInformation("CORS policy: production mode, allowing only some origins");
+    logger.LogInformation("CORS policy: AAAAAAAAAAAAAAA production mode, allowing only some origins");
 
 builder.Services.AddOcelot(builder.Configuration);
 
