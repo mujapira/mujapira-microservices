@@ -30,6 +30,7 @@ builder.Services.Configure<HostFilteringOptions>(
 );
 
 // healthchecks
+
 builder.Services.AddHealthChecks();
 
 // Kafka
