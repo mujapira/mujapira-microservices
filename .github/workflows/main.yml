@@ -62,18 +62,18 @@ jobs:
       - name: Create override with current tag
         run: |
           cat > docker-compose.override.yml <<EOF
-version: "3.9"
-services:
-  authservice:
-    image: mujapira/authservice:${{ steps.tag.outputs.TAG }}
-  userservice:
-    image: mujapira/userservice:${{ steps.tag.outputs.TAG }}
-  logservice:
-    image: mujapira/logservice:${{ steps.tag.outputs.TAG }}
-  apigateway:
-    image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
-EOF
-
+            version: "3.9"
+            services:
+              authservice:
+                image: mujapira/authservice:${{ steps.tag.outputs.TAG }}
+              userservice:
+                image: mujapira/userservice:${{ steps.tag.outputs.TAG }}
+              logservice:
+                image: mujapira/logservice:${{ steps.tag.outputs.TAG }}
+              apigateway:
+                image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
+            EOF
+            
       - name: Deploy stack
         run: |
           docker compose pull || true
