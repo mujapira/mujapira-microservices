@@ -92,7 +92,7 @@ jobs:
       - name: Deploy stack
         run: |
           docker compose pull || true
-          docker compose up -d --remove-orphans
+          docker compose up -d --force-recreate --remove-orphans
 
       # opcional: reativar depois para garantir que o gateway subiu
       # - name: Healthcheck gateway
