@@ -13,14 +13,13 @@ jobs:
 
       - name: Set TAG
         id: tag
-        run: echo "TAG=$(echo ${GITHUB_SHA} | head -c7)" >> "$GITHUB_OUTPUT"
-
-      - name: Build Docker images
         run: |
-          docker build --no-cache -t mujapira/authservice:${{ steps.tag.outputs.TAG }} -f AuthService/Dockerfile .
-          docker build --no-cache -t mujapira/userservice:${{ steps.tag.outputs.TAG }} -f UserService/Dockerfile .
-          docker build --no-cache -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
-          docker build --no-cache -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | head -c7)
+          echo "TAG=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Ajustar permissões do workspace
+        run: |
+          sudo chown -R "$(whoami)":"$(whoami)" .
 
       - name: Render redis.conf
         run: |
@@ -33,12 +32,39 @@ jobs:
           maxmemory 512mb
           maxmemory-policy allkeys-lru
           EOF
+          echo "redis.conf criado (senha não exibida por segurança)"
 
-          echo "=== redis.conf ==="
-          sed -n '1,200p' redis/redis.conf
-
-      - name: Render .env from secrets
+      - name: Construir .env para o ambiente
         run: |
+          set -euo pipefail
+          TAG=${{ steps.tag.outputs.TAG }}
+          # validação mínima
+          required_secrets=(
+            JWT_SECRET
+            AUTH_POSTGRES_DB
+            AUTH_POSTGRES_USER
+            AUTH_POSTGRES_PASSWORD
+            USER_POSTGRES_DB
+            USER_POSTGRES_USER
+            USER_POSTGRES_PASSWORD
+            REDIS_PASSWORD
+            MONGO_ROOT_USER
+            MONGO_ROOT_PASSWORD
+            LOG_DB_NAME
+            LOG_DB_USER
+            LOG_DB_PASSWORD
+          )
+          missing=()
+          for s in "${required_secrets[@]}"; do
+            if [ -z "${{ secrets[$s] || '' }}" ]; then
+              missing+=("$s")
+            fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "Erro: faltando secrets obrigatórios: ${missing[*]}"
+            exit 1
+          fi
+
           cat <<EOF > .env
           ASPNETCORE_ENVIRONMENT=Production
           ASPNETCORE_URLS=http://+:5000
@@ -75,7 +101,7 @@ jobs:
           ZOOKEEPER_TICK_TIME=2000
 
           # Mongo usando root
-          MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
+          MONGO_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
           MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
           MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
@@ -86,40 +112,50 @@ jobs:
           MongoDb__ConnectionString=mongodb://${{ secrets.MONGO_ROOT_USER }}:${{ secrets.MONGO_ROOT_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=admin&retryWrites=true&w=majority
           MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
           MongoDb__CollectionName=Logs
+
+          # Tags de imagem
+          AUTH_TAG=${TAG}
+          USER_TAG=${TAG}
+          LOG_TAG=${TAG}
           EOF
 
-      - name: Create docker-compose.override.yml with current tag
-        run: |
-          cat <<EOF > docker-compose.override.yml
-          services:
-            authservice:
-              image: mujapira/authservice:${{ steps.tag.outputs.TAG }}
-            userservice:
-              image: mujapira/userservice:${{ steps.tag.outputs.TAG }}
-            logservice:
-              image: mujapira/logservice:${{ steps.tag.outputs.TAG }}
-            apigateway:
-              image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
-          EOF
+      - name: Mostrar configuração do Compose (validação)
+        run: docker compose config
 
-          echo "=== override file content ==="
-          cat docker-compose.override.yml
-
-      - name: Validate composed docker config
+      - name: Build Docker images
         run: |
-          docker compose config
-
-      - name: Reset stack and volumes
-        run: |
-          docker compose down -v --remove-orphans || true
-          echo "Volumes after cleanup:"
-          docker volume ls
+          TAG=${{ steps.tag.outputs.TAG }}
+          echo "Construindo imagens com tag $TAG"
+          docker build -t authservice:${TAG} -f AuthService/Dockerfile ./AuthService
+          docker build -t userservice:${TAG} -f UserService/Dockerfile ./UserService
+          docker build -t logservice:${TAG} -f LogService/Dockerfile ./LogService
+          # se tiver gateway:
+          # docker build -t apigateway:${TAG} -f ApiGateway/Dockerfile ./ApiGateway
 
       - name: Deploy stack
         run: |
-          docker compose build --no-cache authservice userservice logservice apigateway
+          docker compose down --remove-orphans || true
           docker compose up -d --force-recreate --remove-orphans
 
-      - name: Clean up old Docker images
+      - name: Esperar estabilização curta
+        run: sleep 5
+
+      - name: Verificar status dos serviços
+        run: docker compose ps
+
+      - name: Coletar logs em caso de falha
+        if: failure()
         run: |
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo "=== Últimos 100 logs de cada serviço ==="
+          for svc in authservice userservice logservice apigateway kafka zookeeper mongodb; do
+            echo "--- logs de $svc ---"
+            docker compose logs --tail=100 "$svc" || true
+          done
+
+      - name: Clean up dangling Docker images
+        if: always()
+        run: |
+          echo "Limpando imagens dangling para liberar espaço (sem remover cache útil)..."
           docker image prune -f

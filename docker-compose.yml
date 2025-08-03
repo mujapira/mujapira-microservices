@@ -2,6 +2,12 @@ networks:
   micro_net:
     driver: bridge
 
+volumes:
+  mongo-data:
+  postgres-auth-data:
+  postgres-user-data:
+  redis_data:
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -131,8 +137,13 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+      - ./init-mongo:/docker-entrypoint-initdb.d # init script para criar user da app
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping').ok"]
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh -u ${MONGO_ROOT_USER} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --quiet --eval "db.adminCommand(''ping'')"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -234,9 +245,3 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-volumes:
-  mongo-data:
-  postgres-auth-data:
-  postgres-user-data:
-  redis_data:
