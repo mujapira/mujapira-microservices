@@ -7,7 +7,7 @@ USER=${LOG_DB_USER:-logservice}
 PASS=${LOG_DB_PASSWORD:-senhaLogServiceSegura!}
 
 # cria o usuário limitado se não existir
-mongosh --username "$MONGO_INITDB_ROOT_USERNAME" --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin <<EOF
+mongosh --username "$MONGO_ROOT_USERNAME" --password "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin <<EOF
 use $DB_NAME
 if (db.getUser("$USER") == null) {
   db.createUser({
