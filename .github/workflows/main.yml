@@ -22,12 +22,6 @@ jobs:
           docker build --no-cache -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
           docker build --no-cache -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
 
-      - name: Normalize and make Mongo init script executable
-        run: |
-          # remove CRLF se houver e garante execução
-          sed -i 's/\r$//' init-mongo/01-create-loguser.sh
-          chmod +x init-mongo/01-create-loguser.sh
-
       - name: Render redis.conf
         run: |
           mkdir -p redis
@@ -80,15 +74,13 @@ jobs:
           ZOOKEEPER_CLIENT_PORT=2181
           ZOOKEEPER_TICK_TIME=2000
           
-          # Mongo
-          MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
-          MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
+          # Mongo usando root
+          MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
+          MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           LOG_DB_NAME=${{ secrets.LOG_DB_NAME }}
-          LOG_DB_USER=${{ secrets.LOG_DB_USER }}
-          LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
           
-          # Connection string do logservice usando usuário limitado (recomendado)
-          MongoDb__ConnectionString=mongodb://${{ secrets.LOG_DB_USER }}:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=${{ secrets.LOG_DB_NAME }}&retryWrites=true&w=majority
+          # Connection string do logservice usando root (authSource=admin)
+          MongoDb__ConnectionString=mongodb://${{ secrets.MONGO_ROOT_USER }}:${{ secrets.MONGO_ROOT_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=admin&retryWrites=true&w=majority
           MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
           MongoDb__CollectionName=Logs
           EOF
@@ -106,7 +98,7 @@ jobs:
             apigateway:
               image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
           EOF
-          
+
           echo "=== override file content ==="
           cat docker-compose.override.yml
 
@@ -116,7 +108,8 @@ jobs:
 
       - name: Deploy stack
         run: |
-          docker compose pull || true
+          # rebuild serviços para garantir que as imagens locais existam com a tag correta
+          docker compose build --no-cache authservice userservice logservice apigateway
           docker compose up -d --force-recreate --remove-orphans
 
       - name: Clean up old Docker images
