@@ -120,8 +120,8 @@ services:
     env_file:
       - .env
     environment:
-      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
-      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       # passa as vars para o init script criar o user limitado
       LOG_DB_NAME: ${LOG_DB_NAME}
       LOG_DB_USER: ${LOG_DB_USER}
