@@ -132,7 +132,7 @@ services:
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "bash -lc", "mongosh -u \"$MONGO_ROOT_USER\" -p \"$MONGO_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval 'db.runCommand({ ping: 1 })' || exit 1"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
       retries: 5
