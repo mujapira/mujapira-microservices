@@ -120,8 +120,8 @@ services:
     env_file:
       - .env
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       # passa as vars para o init script criar o user limitado
       LOG_DB_NAME: ${LOG_DB_NAME}
       LOG_DB_USER: ${LOG_DB_USER}
@@ -131,13 +131,12 @@ services:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
-      - ./init-mongo:/docker-entrypoint-initdb.d # init script para criar user da app
     healthcheck:
-      test: ["CMD-SHELL", "bash -lc", "mongosh --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval 'db.runCommand({ ping: 1 })' || exit 1"]
+      test: ["CMD-SHELL", "bash -lc", "mongosh -u \"$MONGO_ROOT_USER\" -p \"$MONGO_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval 'db.runCommand({ ping: 1 })' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 10s
     networks:
       - micro_net
 
