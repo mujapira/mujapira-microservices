@@ -75,9 +75,13 @@ jobs:
           ZOOKEEPER_TICK_TIME=2000
           
           # Mongo usando root
+          MONGO_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
+          MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
           MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           LOG_DB_NAME=${{ secrets.LOG_DB_NAME }}
+          LOG_DB_USER=${{ secrets.LOG_DB_USER }}
+          LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
           
           MongoDb__ConnectionString=mongodb://${{ secrets.MONGO_ROOT_USER }}:${{ secrets.MONGO_ROOT_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=admin&retryWrites=true&w=majority
           MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
@@ -105,12 +109,9 @@ jobs:
         run: |
           docker compose config
 
-      - name: Reset Postgres / Mongo volumes
+      - name: Reset stack and volumes
         run: |
-          docker compose down || true
-          docker volume rm mongo-data || true
-          docker volume rm postgres-user-data || true
-          docker volume rm postgres-auth-data || true
+          docker compose down -v --remove-orphans || true
           echo "Volumes after cleanup:"
           docker volume ls
 
