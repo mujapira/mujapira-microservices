@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_and_deploy:
-    runs-on: [self-hosted]  # ou [self-hosted, backend] se usar label específico
+    runs-on: [self-hosted]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,86 +22,91 @@ jobs:
           docker build --no-cache -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
           docker build --no-cache -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
 
+      - name: Normalize and make Mongo init script executable
+        run: |
+          # remove CRLF se houver e garante execução
+          sed -i 's/\r$//' init-mongo/01-create-loguser.sh
+          chmod +x init-mongo/01-create-loguser.sh
+
       - name: Render redis.conf
         run: |
           mkdir -p redis
-          cat <<'EOF' > redis/redis.conf
-            requirepass ${{ secrets.REDIS_PASSWORD }}
-            save 900 1
-            save 300 10
-            save 60 10000
-            maxmemory 512mb
-            maxmemory-policy allkeys-lru
+          cat <<EOF > redis/redis.conf
+          requirepass ${{ secrets.REDIS_PASSWORD }}
+          save 900 1
+          save 300 10
+          save 60 10000
+          maxmemory 512mb
+          maxmemory-policy allkeys-lru
           EOF
-          
+
           echo "=== redis.conf ==="
           sed -n '1,200p' redis/redis.conf
 
       - name: Render .env from secrets
         run: |
-          cat <<'EOF' > .env
-            ASPNETCORE_ENVIRONMENT=Production
-            ASPNETCORE_URLS=http://+:5000
-            
-            # JWT
-            JwtSettings__Secret=${{ secrets.JWT_SECRET }}
-            JwtSettings__Issuer=AuthService
-            JwtSettings__Audience=MyApp
-            
-            # Auth Postgres
-            AUTH_POSTGRES_DB=${{ secrets.AUTH_POSTGRES_DB }}
-            AUTH_POSTGRES_USER=${{ secrets.AUTH_POSTGRES_USER }}
-            AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
-            ConnectionStrings__Auth=${{ secrets.CONNECTIONSTRINGS__AUTH}}
-            
-            # User Postgres
-            USER_POSTGRES_DB=${{ secrets.USER_POSTGRES_DB }}
-            USER_POSTGRES_USER=${{ secrets.USER_POSTGRES_USER }}
-            USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
-            ConnectionStrings__User=${{ secrets.CONNECTIONSTRINGS__USER}}
-             
-            # Redis
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-            REDIS_HOST=redis
-            REDIS_PORT=6379
-            
-            # Zookeeper/Kafka (reduz warnings)
-            KAFKA_BROKER_ID=1
-            KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-            KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
-            KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-            ZOOKEEPER_CLIENT_PORT=2181
-            ZOOKEEPER_TICK_TIME=2000
-            
-            # Mongo
-            MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
-            MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
-            LOG_DB_NAME=${{ secrets.LOG_DB_NAME }}
-            LOG_DB_USER=${{ secrets.LOG_DB_USER }}
-            LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
-            
-            
-            MongoDb__ConnectionString=${{ secrets.MONGODB__CONNECTIONSTRING }}
-            MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
-            MongoDb__CollectionName=Logs
-
+          cat <<EOF > .env
+          ASPNETCORE_ENVIRONMENT=Production
+          ASPNETCORE_URLS=http://+:5000
+          
+          # JWT
+          JwtSettings__Secret=${{ secrets.JWT_SECRET }}
+          JwtSettings__Issuer=AuthService
+          JwtSettings__Audience=MyApp
+          
+          # Auth Postgres
+          AUTH_POSTGRES_DB=${{ secrets.AUTH_POSTGRES_DB }}
+          AUTH_POSTGRES_USER=${{ secrets.AUTH_POSTGRES_USER }}
+          AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
+          ConnectionStrings__Auth=${{ secrets.CONNECTIONSTRINGS__AUTH }}
+          
+          # User Postgres
+          USER_POSTGRES_DB=${{ secrets.USER_POSTGRES_DB }}
+          USER_POSTGRES_USER=${{ secrets.USER_POSTGRES_USER }}
+          USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
+          ConnectionStrings__User=${{ secrets.CONNECTIONSTRINGS__USER }}
+          
+          # Redis
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          
+          # Zookeeper/Kafka (reduz warnings)
+          KAFKA_BROKER_ID=1
+          KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+          KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
+          KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+          ZOOKEEPER_CLIENT_PORT=2181
+          ZOOKEEPER_TICK_TIME=2000
+          
+          # Mongo
+          MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
+          MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
+          LOG_DB_NAME=${{ secrets.LOG_DB_NAME }}
+          LOG_DB_USER=${{ secrets.LOG_DB_USER }}
+          LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
+          
+          # Connection string do logservice usando usuário limitado (recomendado)
+          MongoDb__ConnectionString=mongodb://${{ secrets.LOG_DB_USER }}:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=${{ secrets.LOG_DB_NAME }}&retryWrites=true&w=majority
+          MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
+          MongoDb__CollectionName=Logs
           EOF
 
       - name: Create docker-compose.override.yml with current tag
         run: |
-          cat <<'EOF' > docker-compose.override.yml
-            services:
-              authservice:
-                image: mujapira/authservice:${{ steps.tag.outputs.TAG }}
-              userservice:
-                image: mujapira/userservice:${{ steps.tag.outputs.TAG }}
-              logservice:
-                image: mujapira/logservice:${{ steps.tag.outputs.TAG }}
-              apigateway:
-                image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
+          cat <<EOF > docker-compose.override.yml
+          services:
+            authservice:
+              image: mujapira/authservice:${{ steps.tag.outputs.TAG }}
+            userservice:
+              image: mujapira/userservice:${{ steps.tag.outputs.TAG }}
+            logservice:
+              image: mujapira/logservice:${{ steps.tag.outputs.TAG }}
+            apigateway:
+              image: mujapira/apigateway:${{ steps.tag.outputs.TAG }}
           EOF
-
+          
           echo "=== override file content ==="
           cat docker-compose.override.yml
 
