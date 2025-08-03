@@ -2,7 +2,7 @@ name: CI/CD Backend Self-Hosted
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   build_and_deploy:
@@ -42,29 +42,29 @@ jobs:
           cat <<EOF > .env
           ASPNETCORE_ENVIRONMENT=Production
           ASPNETCORE_URLS=http://+:5000
-          
+
           # JWT
           JwtSettings__Secret=${{ secrets.JWT_SECRET }}
           JwtSettings__Issuer=AuthService
           JwtSettings__Audience=MyApp
-          
+
           # Auth Postgres
           AUTH_POSTGRES_DB=${{ secrets.AUTH_POSTGRES_DB }}
           AUTH_POSTGRES_USER=${{ secrets.AUTH_POSTGRES_USER }}
           AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
           ConnectionStrings__Auth=Host=postgres-auth;Port=5432;Database=${{ secrets.AUTH_POSTGRES_DB }};Username=${{ secrets.AUTH_POSTGRES_USER }};Password=${{ secrets.AUTH_POSTGRES_PASSWORD }}
-          
+
           # User Postgres
           USER_POSTGRES_DB=${{ secrets.USER_POSTGRES_DB }}
           USER_POSTGRES_USER=${{ secrets.USER_POSTGRES_USER }}
           USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
           ConnectionStrings__User=Host=postgres-user;Port=5432;Database=${{ secrets.USER_POSTGRES_DB }};Username=${{ secrets.USER_POSTGRES_USER }};Password=${{ secrets.USER_POSTGRES_PASSWORD }}
-          
+
           # Redis
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           REDIS_HOST=redis
           REDIS_PORT=6379
-          
+
           # Zookeeper/Kafka (reduz warnings)
           KAFKA_BROKER_ID=1
           KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
@@ -73,16 +73,16 @@ jobs:
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
           ZOOKEEPER_CLIENT_PORT=2181
           ZOOKEEPER_TICK_TIME=2000
-          
+
           # Mongo usando root
-          MONGO_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
+          MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
           MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
           MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           LOG_DB_NAME=${{ secrets.LOG_DB_NAME }}
           LOG_DB_USER=${{ secrets.LOG_DB_USER }}
           LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
-          
+
           MongoDb__ConnectionString=mongodb://${{ secrets.MONGO_ROOT_USER }}:${{ secrets.MONGO_ROOT_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=admin&retryWrites=true&w=majority
           MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
           MongoDb__CollectionName=Logs
