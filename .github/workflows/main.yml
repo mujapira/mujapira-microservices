@@ -81,6 +81,7 @@ jobs:
             LOG_DB_USER=${{ secrets.LOG_DB_USER }}
             LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
             
+            
             MongoDb__ConnectionString=${{ secrets.MONGODB__CONNECTIONSTRING }}
             MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
             MongoDb__CollectionName=Logs
