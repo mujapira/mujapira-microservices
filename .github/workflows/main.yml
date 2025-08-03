@@ -80,7 +80,8 @@ jobs:
             LOG_DB_NAME=${{ secrets.LOG_DB_NAME }}
             LOG_DB_USER=${{ secrets.LOG_DB_USER }}
             LOG_DB_PASSWORD=${{ secrets.LOG_DB_PASSWORD }}
-            MongoDb__ConnectionString=mongodb://${{ secrets.LOG_DB_USER }}:${{ secrets.LOG_DB_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=${{ secrets.LOG_DB_NAME }}&retryWrites=true&w=majority
+            
+            MongoDb__ConnectionString=${{ secrets.MONGODB__CONNECTIONSTRING }}
             MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
             MongoDb__CollectionName=Logs
 
