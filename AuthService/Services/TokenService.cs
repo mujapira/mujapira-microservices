@@ -24,8 +24,7 @@ namespace AuthService.Services
                 new(JwtRegisteredClaimNames.Jti, jti),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Email, user.Email),
-    
-                new("role", roleValue)
+                new(ClaimTypes.Role, roleValue)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Secret));

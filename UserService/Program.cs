@@ -78,7 +78,6 @@ builder.Services
             ValidateIssuerSigningKey = true,
             RoleClaimType = ClaimTypes.Role
         };
-        options.MapInboundClaims = false;
     });
 
 // autorização

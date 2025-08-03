@@ -17,19 +17,30 @@ using AuthService.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// atalho
 var configuration = builder.Configuration;
 var env = builder.Environment;
 
+var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "redis";
+var redisPort = Environment.GetEnvironmentVariable("REDIS_PORT") ?? "6379";
+var redisPassword = Environment.GetEnvironmentVariable("REDIS_PASSWORD");
+
+if (string.IsNullOrWhiteSpace(redisPassword))
+    throw new InvalidOperationException("REDIS_PASSWORD (ou Redis:Password) não está configurado.");
+
+var redisEndpoint = $"{redisHost}:{redisPort}";
+
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 {
-    var configuration = builder.Configuration;
-    var redisHost = configuration["REDIS_HOST"] ?? "redis:6379";
-    var redisPassword = configuration["REDIS_PASSWORD"];
-    var options = ConfigurationOptions.Parse(redisHost);
-    if (!string.IsNullOrWhiteSpace(redisPassword))
-        options.Password = redisPassword;
-    options.ClientName = "auth-service";
+    var options = new ConfigurationOptions
+    {
+        EndPoints = { redisEndpoint },
+        Password = redisPassword,
+        AbortOnConnectFail = false,
+        ClientName = "auth-service",
+        ConnectRetry = 3,
+        ConnectTimeout = 5000
+    };
+
     return ConnectionMultiplexer.Connect(options);
 });
 
@@ -63,9 +74,6 @@ if (string.IsNullOrWhiteSpace(gatewayUrl))
 builder.Services.AddHttpClient<IUserService, AuthService.Services.UserService>(client =>
     client.BaseAddress = new Uri(gatewayUrl));
 
-
-
-
 // ===== Authentication / JWT =====
 builder.Services
     .AddAuthentication("JwtBearer")
@@ -84,7 +92,6 @@ builder.Services
             ValidateIssuerSigningKey = true,
             RoleClaimType = ClaimTypes.Role
         };
-        options.MapInboundClaims = false;
     });
 
 // ===== Auth / App =====

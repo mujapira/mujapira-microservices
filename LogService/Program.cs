@@ -88,7 +88,6 @@ builder.Services
             ValidateIssuerSigningKey = true,
             RoleClaimType = ClaimTypes.Role
         };
-        options.MapInboundClaims = false;
     });
 
 // Kafka consumer / log service

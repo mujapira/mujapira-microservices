@@ -1,5 +1,6 @@
-﻿using Contracts.Common; // Supondo que JwtSettings venha daqui
+﻿using Contracts.Common; // JwtSettings
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
@@ -8,8 +9,10 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// expõe em 5000
 builder.WebHost.UseUrls("http://+:5000");
 
+// configuração
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
@@ -17,53 +20,44 @@ builder.Configuration
 
 var env = builder.Environment;
 
-// =================================================================
-// PASSO 1: REATIVANDO O CORS FUNCIONAL
-// =================================================================
+// CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DynamicCorsPolicy", policy =>
     {
         if (env.IsDevelopment())
         {
-            // Política flexível para ambiente de desenvolvimento
             policy
-                .SetIsOriginAllowed(_ => true) // Permite qualquer origem
+                .SetIsOriginAllowed(_ => true)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
-                .AllowCredentials(); // Permite credenciais (importante para testes locais)
+                .AllowCredentials();
         }
         else
         {
-            // Política restrita e segura para produção
             policy
-                .WithOrigins("https://mujapira.com", "https://www.mujapira.com") // Domínios exatos
+                .WithOrigins("https://mujapira.com", "https://www.mujapira.com")
                 .AllowAnyHeader()
                 .AllowAnyMethod()
-                .AllowCredentials(); // Permite credenciais (necessário para auth)
+                .AllowCredentials();
         }
     });
 });
 
-
+// health
 builder.Services.AddHealthChecks();
 
-// Carregando configurações do JWT de forma segura
+// JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
     ?? throw new InvalidOperationException("Seção JwtSettings está ausente.");
 
 if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
     throw new InvalidOperationException("JWT Secret não está configurado.");
-
 if (jwtSettings.Secret.Length < 16)
     throw new InvalidOperationException("JWT Secret é muito curto; use um secreto forte e aleatório.");
 
-
-// =================================================================
-// PASSO 2: CORRIGINDO O REGISTRO DE AUTENTICAÇÃO
-// Esta é a forma mais robusta e compatível com Ocelot.
-// =================================================================
+// Autenticação JWT (mapeamento padrão ativo)
 builder.Services
     .AddAuthentication(options =>
     {
@@ -73,6 +67,7 @@ builder.Services
     .AddJwtBearer(options =>
     {
         options.RequireHttpsMetadata = env.IsProduction();
+        // NÃO desative o MapInboundClaims: deixamos o padrão para que "role" vire ClaimTypes.Role
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -83,46 +78,42 @@ builder.Services
             ClockSkew = TimeSpan.Zero,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
             ValidateIssuerSigningKey = true,
+            // RoleClaimType padrão já é ClaimTypes.Role, pode omitir, mas deixamos para clareza
             RoleClaimType = ClaimTypes.Role
         };
-        options.MapInboundClaims = false;
     });
 
+// logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
+// Ocelot
 builder.Services.AddOcelot(builder.Configuration);
 
 var app = builder.Build();
 
-var loggerFactory = LoggerFactory.Create(logging =>
+// forwarded headers (Nginx / Cloudflare)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    logging.AddConsole();
-    logging.SetMinimumLevel(LogLevel.Debug);
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
-var logger = loggerFactory.CreateLogger("Startup");
 
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
 if (env.IsDevelopment())
     logger.LogInformation("CORS policy: development mode, allowing all origins.");
 else
-    logger.LogInformation("CORS policy: production mode, allowing only some origins");
+    logger.LogInformation("CORS policy: production mode, restricting origins.");
 
-
+// endpoints básicos
 app.MapHealthChecks("/health");
 
-// =================================================================
-// PASSO 3: HABILITANDO OS MIDDLEWARES NA ORDEM CORRETA
-// =================================================================
-
-// O CORS deve vir antes de qualquer coisa que precise dele, especialmente Ocelot.
+// pipeline
 app.UseCors("DynamicCorsPolicy");
-
-// A autenticação deve vir antes do Ocelot para que as rotas possam ser protegidas.
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Ocelot é o último no pipeline para rotear a requisição.
+// Ocelot por último
 await app.UseOcelot();
 
 app.Run();
