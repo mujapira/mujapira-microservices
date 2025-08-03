@@ -133,15 +133,11 @@ services:
       - mongo-data:/data/db
       - ./init-mongo:/docker-entrypoint-initdb.d # init script para criar user da app
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'mongosh -u ${MONGO_ROOT_USER} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --quiet --eval "db.adminCommand(''ping'')"',
-        ]
+      test: ["CMD-SHELL", "bash -lc", "mongosh --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval 'db.runCommand({ ping: 1 })' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     networks:
       - micro_net
 

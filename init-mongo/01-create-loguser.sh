@@ -1,13 +1,13 @@
-#!/bin/bash
-set -e
+#!/bin/sh
+set -eu
 
-# Variáveis com fallback
-DB_NAME="${LOG_DB_NAME:-LogServiceDb}"
-USER="${LOG_DB_USER:-logservice}"
-PASS="${LOG_DB_PASSWORD:-senhaLogServiceSegura!}"
+# variáveis com fallback
+DB_NAME=${LOG_DB_NAME:-LogServiceDb}
+USER=${LOG_DB_USER:-logservice}
+PASS=${LOG_DB_PASSWORD:-senhaLogServiceSegura!}
 
-# Cria o usuário limitado se não existir
-mongo --username "$MONGO_INITDB_ROOT_USERNAME" --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin <<EOF
+# cria o usuário limitado se não existir
+mongosh --username "$MONGO_INITDB_ROOT_USERNAME" --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin <<EOF
 use $DB_NAME
 if (db.getUser("$USER") == null) {
   db.createUser({
