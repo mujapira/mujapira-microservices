@@ -22,6 +22,21 @@ jobs:
           docker build --no-cache -t mujapira/logservice:${{ steps.tag.outputs.TAG }} -f LogService/Dockerfile .
           docker build --no-cache -t mujapira/apigateway:${{ steps.tag.outputs.TAG }} -f ApiGateway/Dockerfile .
 
+      - name: Render redis.conf
+        run: |
+          mkdir -p redis
+          cat <<'EOF' > redis/redis.conf
+            requirepass ${{ secrets.REDIS_PASSWORD }}
+            save 900 1
+            save 300 10
+            save 60 10000
+            maxmemory 512mb
+            maxmemory-policy allkeys-lru
+          EOF
+          
+          echo "=== redis.conf ==="
+          sed -n '1,200p' redis/redis.conf
+
       - name: Render .env from secrets
         run: |
           cat <<'EOF' > .env
