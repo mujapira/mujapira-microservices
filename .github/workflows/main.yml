@@ -123,11 +123,10 @@ jobs:
         run: |
           TAG=${{ steps.tag.outputs.TAG }}
           echo "Construindo imagens com tag $TAG"
-          docker build -t authservice:${TAG} -f AuthService/Dockerfile ./AuthService
-          docker build -t userservice:${TAG} -f UserService/Dockerfile ./UserService
-          docker build -t logservice:${TAG} -f LogService/Dockerfile ./LogService
-          # se tiver gateway:
-          # docker build -t apigateway:${TAG} -f ApiGateway/Dockerfile ./ApiGateway
+          docker build -t authservice:${TAG} -f AuthService/Dockerfile .
+          docker build -t userservice:${TAG} -f UserService/Dockerfile .
+          docker build -t logservice:${TAG} -f LogService/Dockerfile .
+          docker build -t apigateway:${TAG} -f ApiGateway/Dockerfile .
 
       - name: Deploy stack
         run: |
