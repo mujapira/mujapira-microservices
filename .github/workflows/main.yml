@@ -20,6 +20,9 @@ jobs:
       - name: Ajustar permissões do workspace
         run: |
           sudo chown -R "$(whoami)":"$(whoami)" .
+          # Às vezes o init-db vira root-owned por bind mounts; garanta que isso também seja corrigido
+          sudo chown -R "$(whoami)":"$(whoami)" ./init-db || true
+          sudo chmod -R u+rwX ./init-db || true
 
       - name: Render redis.conf
         run: |
