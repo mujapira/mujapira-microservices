@@ -38,30 +38,24 @@ jobs:
         run: |
           set -euo pipefail
           TAG=${{ steps.tag.outputs.TAG }}
-          # validação mínima
-          required_secrets=(
-            JWT_SECRET
-            AUTH_POSTGRES_DB
-            AUTH_POSTGRES_USER
-            AUTH_POSTGRES_PASSWORD
-            USER_POSTGRES_DB
-            USER_POSTGRES_USER
-            USER_POSTGRES_PASSWORD
-            REDIS_PASSWORD
-            MONGO_ROOT_USER
-            MONGO_ROOT_PASSWORD
-            LOG_DB_NAME
-            LOG_DB_USER
-            LOG_DB_PASSWORD
-          )
-          missing=()
-          for s in "${required_secrets[@]}"; do
-            if [ -z "${{ secrets[$s] || '' }}" ]; then
-              missing+=("$s")
-            fi
-          done
-          if [ "${#missing[@]}" -ne 0 ]; then
-            echo "Erro: faltando secrets obrigatórios: ${missing[*]}"
+          
+          missing=0
+          if [ -z "${{ secrets.JWT_SECRET }}" ]; then echo "Erro: faltando secret JWT_SECRET"; missing=1; fi
+          if [ -z "${{ secrets.AUTH_POSTGRES_DB }}" ]; then echo "Erro: faltando secret AUTH_POSTGRES_DB"; missing=1; fi
+          if [ -z "${{ secrets.AUTH_POSTGRES_USER }}" ]; then echo "Erro: faltando secret AUTH_POSTGRES_USER"; missing=1; fi
+          if [ -z "${{ secrets.AUTH_POSTGRES_PASSWORD }}" ]; then echo "Erro: faltando secret AUTH_POSTGRES_PASSWORD"; missing=1; fi
+          if [ -z "${{ secrets.USER_POSTGRES_DB }}" ]; then echo "Erro: faltando secret USER_POSTGRES_DB"; missing=1; fi
+          if [ -z "${{ secrets.USER_POSTGRES_USER }}" ]; then echo "Erro: faltando secret USER_POSTGRES_USER"; missing=1; fi
+          if [ -z "${{ secrets.USER_POSTGRES_PASSWORD }}" ]; then echo "Erro: faltando secret USER_POSTGRES_PASSWORD"; missing=1; fi
+          if [ -z "${{ secrets.REDIS_PASSWORD }}" ]; then echo "Erro: faltando secret REDIS_PASSWORD"; missing=1; fi
+          if [ -z "${{ secrets.MONGO_ROOT_USER }}" ]; then echo "Erro: faltando secret MONGO_ROOT_USER"; missing=1; fi
+          if [ -z "${{ secrets.MONGO_ROOT_PASSWORD }}" ]; then echo "Erro: faltando secret MONGO_ROOT_PASSWORD"; missing=1; fi
+          if [ -z "${{ secrets.LOG_DB_NAME }}" ]; then echo "Erro: faltando secret LOG_DB_NAME"; missing=1; fi
+          if [ -z "${{ secrets.LOG_DB_USER }}" ]; then echo "Erro: faltando secret LOG_DB_USER"; missing=1; fi
+          if [ -z "${{ secrets.LOG_DB_PASSWORD }}" ]; then echo "Erro: faltando secret LOG_DB_PASSWORD"; missing=1; fi
+      
+          if [ "$missing" -ne 0 ]; then
+            echo "Um ou mais secrets obrigatórios estão ausentes. Abortando."
             exit 1
           fi
 
