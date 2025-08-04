@@ -107,77 +107,10 @@ else
 // endpoints básicos
 app.MapHealthChecks("/health");
 
-app.MapGet("/ready", async (IHttpClientFactory httpFactory, ILogger<Program> logger) =>
-{
-    var downstreams = new[]
-    {
-        new { Name = "authservice", Url = "http://localhost:5003/health" },
-        new { Name = "userservice", Url = "http://localhost:5002/health" },
-        new { Name = "logservice", Url = "http://localhost:5001/health" }
-    };
 
-    var overallHealthy = true;
-    var detail = new Dictionary<string, object>();
-
-    foreach (var svc in downstreams)
-    {
-        using var client = httpFactory.CreateClient();
-        client.Timeout = TimeSpan.FromSeconds(2);
-        try
-        {
-            var resp = await client.GetAsync(svc.Url);
-            if (resp.IsSuccessStatusCode)
-            {
-                detail[svc.Name] = new
-                {
-                    status = "Healthy",
-                    httpStatus = (int)resp.StatusCode
-                };
-            }
-            else
-            {
-                overallHealthy = false;
-                detail[svc.Name] = new
-                {
-                    status = "Unhealthy",
-                    httpStatus = (int)resp.StatusCode,
-                    reason = $"Status code {resp.StatusCode}"
-                };
-            }
-        }
-        catch (Exception ex)
-        {
-            overallHealthy = false;
-            detail[svc.Name] = new
-            {
-                status = "Unavailable",
-                error = ex.Message
-            };
-        }
-    }
-
-    var result = new
-    {
-        status = overallHealthy ? "Healthy" : "Degraded",
-        services = detail
-    };
-
-    return overallHealthy
-        ? Results.Ok(result)
-        : Results.StatusCode(503);
-})
-.WithName("Readiness");
-
-// pipeline condicional: só aplica Ocelot/CORS/Auth para rotas que não sejam /health ou /ready
-app.UseWhen(context =>
-    !context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase) &&
-    !context.Request.Path.StartsWithSegments("/ready", StringComparison.OrdinalIgnoreCase),
-    appBuilder =>
-    {
-        appBuilder.UseCors("DynamicCorsPolicy");
-        appBuilder.UseAuthentication();
-        appBuilder.UseAuthorization();
-        appBuilder.UseOcelot().Wait();
-    });
+app.UseCors("DynamicCorsPolicy");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseOcelot().Wait();
 
 app.Run();

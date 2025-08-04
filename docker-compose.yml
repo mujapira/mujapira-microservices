@@ -245,19 +245,22 @@ services:
       dockerfile: ApiGateway/Dockerfile
     ports:
       - "5000:5000"
+    depends_on:
+      - authservice
+      - userservice
+      - logservice
     env_file:
       - .env
     volumes:
       - ./ApiGateway/ocelot.json:/app/ocelot.json:ro
       - ./ApiGateway/appsettings.json:/app/appsettings.json:ro
-      - ./ApiGateway/appsettings.Development.json:/app/appsettings.Development.json:ro
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: http://+:5000
     networks:
       - micro_net
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5000/ready || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
