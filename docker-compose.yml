@@ -16,8 +16,10 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
       ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
-    ports:
-      - "2181:2181"
+    # ports:
+    #   - "2181:2181"
+    expose:
+      - "2181"
     healthcheck:
       test:
         - "CMD-SHELL"
@@ -42,8 +44,8 @@ services:
         condition: service_healthy
     env_file:
       - .env
-    ports:
-      - "9092:9092"
+    expose:
+      - "9092"
     environment:
       KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
       KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
@@ -51,7 +53,9 @@ services:
       KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"
       interval: 20s
       timeout: 10s
       start_period: 30s
@@ -69,8 +73,12 @@ services:
       - redis_data:/data
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    expose:
+      - "6379"
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep -q PONG"]
+      test:
+        - "CMD-SHELL"
+        - "redis-cli -a ${REDIS_PASSWORD} ping | grep -q PONG"
       interval: 10s
       timeout: 5s
       start_period: 20s
@@ -86,17 +94,15 @@ services:
       POSTGRES_DB: ${AUTH_POSTGRES_DB}
       POSTGRES_USER: ${AUTH_POSTGRES_USER}
       POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres-auth-data:/var/lib/postgresql/data
       - ./init-db/auth-init:/docker-entrypoint-initdb.d
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}",
-        ]
+        - "CMD-SHELL"
+        - "pg_isready -U ${AUTH_POSTGRES_USER} -d ${AUTH_POSTGRES_DB}"
       interval: 10s
       timeout: 5s
       start_period: 20s
@@ -112,17 +118,15 @@ services:
       POSTGRES_DB: ${USER_POSTGRES_DB}
       POSTGRES_USER: ${USER_POSTGRES_USER}
       POSTGRES_PASSWORD: ${USER_POSTGRES_PASSWORD}
-    ports:
-      - "5433:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres-user-data:/var/lib/postgresql/data
       - ./init-db/user-init:/docker-entrypoint-initdb.d
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${USER_POSTGRES_USER} -d ${USER_POSTGRES_DB}",
-        ]
+        - "CMD-SHELL"
+        - "pg_isready -U ${USER_POSTGRES_USER} -d ${USER_POSTGRES_DB}"
       interval: 10s
       timeout: 5s
       start_period: 20s
@@ -137,22 +141,20 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-      # passa as vars para o init script criar o user limitado
       LOG_DB_NAME: ${LOG_DB_NAME}
       LOG_DB_USER: ${LOG_DB_USER}
       LOG_DB_PASSWORD: ${LOG_DB_PASSWORD}
-    # em dev pode expor para debug; em produção remova esta linha
-    ports:
-      - "27017:27017"
+    expose:
+      - "27017"
     volumes:
       - mongo-data:/data/db
-      - ./init-mongo:/docker-entrypoint-initdb.d # init script para criar user da app
+      - ./init-mongo:/docker-entrypoint-initdb.d
     healthcheck:
       test:
-        [
-          "CMD-SHELL",
-          'mongosh -u ${MONGO_ROOT_USER} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --quiet --eval "db.adminCommand(''ping'')"',
-        ]
+        - "CMD-SHELL"
+        - >
+          mongosh -u ${MONGO_ROOT_USER} -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --quiet \
+            --eval "db.adminCommand('ping')" || exit 1
       interval: 10s
       timeout: 5s
       start_period: 25s
@@ -166,9 +168,7 @@ services:
       context: .
       dockerfile: LogService/Dockerfile
     expose:
-      - "8080"
-    ports:
-      - "5001:5001"
+      - "5001"
     env_file:
       - .env
     depends_on:
@@ -177,8 +177,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: http://+:5001
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5001/health || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5001/health || exit 1"
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -192,11 +196,9 @@ services:
       context: .
       dockerfile: UserService/Dockerfile
     expose:
-      - "8080"
+      - "5002"
     env_file:
       - .env
-    ports:
-      - "5002:5002"
     depends_on:
       - kafka
       - postgres-user
@@ -204,7 +206,9 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: http://+:5002
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5002/health || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5002/health || exit 1"
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -218,9 +222,7 @@ services:
       context: .
       dockerfile: AuthService/Dockerfile
     expose:
-      - "8080"
-    ports:
-      - "5003:5003"
+      - "5003"
     env_file:
       - .env
     depends_on:
@@ -230,7 +232,9 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: http://+:5003
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5003/health || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5003/health || exit 1"
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -245,10 +249,6 @@ services:
       dockerfile: ApiGateway/Dockerfile
     ports:
       - "5000:5000"
-    depends_on:
-      - authservice
-      - userservice
-      - logservice
     env_file:
       - .env
     volumes:
@@ -257,12 +257,21 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: http://+:5000
-    networks:
-      - micro_net
+    depends_on:
+      authservice:
+        condition: service_healthy
+      userservice:
+        condition: service_healthy
+      logservice:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5000/health || exit 1"
       interval: 15s
       timeout: 5s
-      retries: 3
       start_period: 45s
+      retries: 3
+    networks:
+      - micro_net
     restart: unless-stopped
