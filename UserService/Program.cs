@@ -12,6 +12,8 @@ using UserService.Services;
 using Contracts.Common;
 using Contracts.Users;
 using Microsoft.Extensions.Logging;
+using Confluent.Kafka;
+using Confluent.Kafka.Admin;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,14 +31,22 @@ builder.Services.Configure<HostFilteringOptions>(
     configuration.GetSection("HostFiltering")
 );
 
-//teste
 // healthchecks
-
 builder.Services.AddHealthChecks();
 
-// Kafka
+// Kafka settings binding
 builder.Services.Configure<KafkaSettings>(
     configuration.GetSection("Kafka"));
+
+// --- espera Kafka estar disponível antes de prosseguir ---
+// Esse bloco roda antes de registrar produtores/consumidores efetivos
+var tempLoggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug));
+var tempLogger = tempLoggerFactory.CreateLogger("KafkaReadiness");
+
+string bootstrapServers = configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
+await WaitForKafkaAsync(bootstrapServers, tempLogger);
+
+// registro do produtor/serviço Kafka
 builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
 
 // migração automática
@@ -89,7 +99,7 @@ builder.Services.AddControllers();
 var app = builder.Build();
 
 // middleware pipeline
-app.UseHostFiltering(); 
+app.UseHostFiltering();
 
 app.UseMiddleware<GlobalExceptionLoggingMiddleware>();
 
@@ -103,5 +113,38 @@ app.MapControllers();
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 logger.LogInformation("UserService iniciado em ambiente {Env}", env.EnvironmentName);
 logger.LogInformation("JWT Issuer: {Issuer}, Audience: {Audience}", jwtSettings.Issuer, jwtSettings.Audience);
+logger.LogInformation("Kafka bootstrap servers: {Bootstrap}", bootstrapServers);
 
 app.Run();
+
+
+// ---- helpers ----
+
+static async Task WaitForKafkaAsync(string bootstrapServers, ILogger logger, int maxRetries = 8)
+{
+    var config = new AdminClientConfig { BootstrapServers = bootstrapServers };
+    int attempt = 0;
+    TimeSpan delay = TimeSpan.FromSeconds(1);
+    while (true)
+    {
+        try
+        {
+            using var admin = new AdminClientBuilder(config).Build();
+            var meta = admin.GetMetadata(TimeSpan.FromSeconds(2));
+            logger.LogInformation("Kafka disponível, tópicos: {Count}", meta.Topics.Count);
+            return;
+        }
+        catch (Exception ex)
+        {
+            attempt++;
+            if (attempt >= maxRetries)
+            {
+                logger.LogError(ex, "Não foi possível conectar ao Kafka após {Attempt} tentativas.", attempt);
+                throw;
+            }
+            logger.LogWarning("Kafka não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
+            await Task.Delay(delay);
+            delay = delay * 2; // backoff exponencial
+        }
+    }
+}

@@ -1,4 +1,7 @@
-﻿using AuthService.Services;
+﻿using AuthService.Redis;
+using AuthService.Services;
+using Confluent.Kafka;
+using Confluent.Kafka.Admin;
 using Contracts.Auth;
 using Contracts.Common;
 using Contracts.Users;
@@ -6,20 +9,21 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using StackExchange.Redis;
 using System;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.RateLimiting;
-using AuthService.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
 var env = builder.Environment;
 
+// ===== Redis (rate limiting base infrastructure) =====
 var redisHost = Environment.GetEnvironmentVariable("REDIS_HOST") ?? "redis";
 var redisPort = Environment.GetEnvironmentVariable("REDIS_PORT") ?? "6379";
 var redisPassword = Environment.GetEnvironmentVariable("REDIS_PASSWORD");
@@ -58,6 +62,20 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
 
 if (jwtSettings.Secret.Length < 16)
     throw new InvalidOperationException("JWT secret é muito curto; use um secreto forte.");
+
+// ===== Dependency readiness (Postgres + Kafka) =====
+// Criar logger temporário para essa fase
+using var tempLoggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug));
+var tempLogger = tempLoggerFactory.CreateLogger("DependencyReadiness");
+
+// Strings de conexão / bootstrap
+string postgresConn = builder.Configuration.GetConnectionString("Auth")
+    ?? throw new InvalidOperationException("Connection string 'Auth' não está configurada.");
+string kafkaBootstrap = builder.Configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
+
+// Espera o Postgres e Kafka antes de prosseguir
+await WaitForPostgresAsync(postgresConn, tempLogger);
+await WaitForKafkaAsync(kafkaBootstrap, tempLogger);
 
 // ===== Infrastructure =====
 builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
@@ -120,6 +138,8 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 logger.LogInformation("AuthService iniciado em ambiente {Env}", env.EnvironmentName);
 logger.LogInformation("JWT Issuer: {Issuer}, Audience: {Audience}", jwtSettings.Issuer, jwtSettings.Audience);
+logger.LogInformation("Postgres connection: {Conn}", postgresConn);
+logger.LogInformation("Kafka bootstrap servers: {Bootstrap}", kafkaBootstrap);
 
 // ===== pipeline =====
 if (app.Environment.IsProduction())
@@ -136,3 +156,63 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+
+// ---- helpers ----
+
+static async Task WaitForKafkaAsync(string bootstrapServers, ILogger logger, int maxRetries = 8)
+{
+    var config = new AdminClientConfig { BootstrapServers = bootstrapServers };
+    int attempt = 0;
+    TimeSpan delay = TimeSpan.FromSeconds(1);
+    while (true)
+    {
+        try
+        {
+            using var admin = new AdminClientBuilder(config).Build();
+            var meta = admin.GetMetadata(TimeSpan.FromSeconds(2));
+            logger.LogInformation("Kafka disponível, tópicos: {Count}", meta.Topics.Count);
+            return;
+        }
+        catch (Exception ex)
+        {
+            attempt++;
+            if (attempt >= maxRetries)
+            {
+                logger.LogError(ex, "Não foi possível conectar ao Kafka após {Attempt} tentativas.", attempt);
+                throw;
+            }
+            logger.LogWarning("Kafka não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
+            await Task.Delay(delay);
+            delay = delay * 2;
+        }
+    }
+}
+
+static async Task WaitForPostgresAsync(string connectionString, ILogger logger, int maxRetries = 8)
+{
+    int attempt = 0;
+    TimeSpan delay = TimeSpan.FromSeconds(1);
+    while (true)
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(connectionString);
+            await conn.OpenAsync();
+            logger.LogInformation("Postgres disponível.");
+            return;
+        }
+        catch (Exception ex)
+        {
+            attempt++;
+            if (attempt >= maxRetries)
+            {
+                logger.LogError(ex, "Não foi possível conectar ao Postgres após {Attempt} tentativas.", attempt);
+                throw;
+            }
+            logger.LogWarning("Postgres não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
+            await Task.Delay(delay);
+            delay = delay * 2;
+        }
+    }
+}
