@@ -101,7 +101,7 @@ jobs:
           ZOOKEEPER_TICK_TIME=2000
 
           # Mongo usando root
-          MONGO_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
+          MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
           MONGO_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
           MONGO_INITDB_ROOT_USERNAME=${{ secrets.MONGO_ROOT_USER }}
           MONGO_INITDB_ROOT_PASSWORD=${{ secrets.MONGO_ROOT_PASSWORD }}
