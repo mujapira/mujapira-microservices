@@ -167,6 +167,8 @@ services:
       dockerfile: LogService/Dockerfile
     expose:
       - "8080"
+    ports:
+      - "5001:5001"
     env_file:
       - .env
     depends_on:
@@ -174,9 +176,9 @@ services:
       - mongo
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
+      ASPNETCORE_URLS: http://+:5001
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5001/health || exit 1"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -193,14 +195,16 @@ services:
       - "8080"
     env_file:
       - .env
+    ports:
+      - "5002:5002"
     depends_on:
       - kafka
       - postgres-user
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
+      ASPNETCORE_URLS: http://+:5002
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5002/health || exit 1"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -215,6 +219,8 @@ services:
       dockerfile: AuthService/Dockerfile
     expose:
       - "8080"
+    ports:
+      - "5003:5003"
     env_file:
       - .env
     depends_on:
@@ -222,9 +228,9 @@ services:
       - kafka
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
+      ASPNETCORE_URLS: http://+:5003
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5003/health || exit 1"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -247,6 +253,7 @@ services:
       - ./ApiGateway/appsettings.Development.json:/app/appsettings.Development.json:ro
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:5000
     networks:
       - micro_net
     healthcheck:
