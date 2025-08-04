@@ -19,13 +19,21 @@ services:
     ports:
       - "2181:2181"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      test:
+        - "CMD-SHELL"
+        - >
+          set -e;
+          # 1. Está vivo?
+          echo ruok | nc localhost 2181 | grep -q imok;
+          # 2. Está em um modo válido (leader/follower/standalone)?
+          echo stat | nc localhost 2181 | grep -Eq 'Mode: (leader|follower|standalone)' || exit 1
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
     networks:
       - micro_net
+    restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -43,13 +51,14 @@ services:
       KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
     healthcheck:
-      test: ["CMD", "bash", "-lc", "echo > /dev/tcp/localhost/9092"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     networks:
       - micro_net
+    restart: unless-stopped
 
   redis:
     image: redis:8-alpine
@@ -64,8 +73,8 @@ services:
       test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 5s
+      start_period: 20s
+      retries: 3
     networks:
       - micro_net
 
@@ -90,8 +99,8 @@ services:
         ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      start_period: 20s
+      retries: 3
     networks:
       - micro_net
 
@@ -116,8 +125,8 @@ services:
         ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      start_period: 20s
+      retries: 3
     networks:
       - micro_net
 
@@ -146,8 +155,8 @@ services:
         ]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      start_period: 25s
+      retries: 3
     networks:
       - micro_net
     restart: unless-stopped
@@ -161,6 +170,7 @@ services:
     env_file:
       - .env
     depends_on:
+      - kafka
       - mongo
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
@@ -169,8 +179,8 @@ services:
       test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      start_period: 30s
+      retries: 3
     networks:
       - micro_net
     restart: unless-stopped
@@ -184,6 +194,7 @@ services:
     env_file:
       - .env
     depends_on:
+      - kafka
       - postgres-user
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
@@ -192,8 +203,8 @@ services:
       test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      start_period: 30s
+      retries: 3
     networks:
       - micro_net
     restart: unless-stopped
@@ -208,6 +219,7 @@ services:
       - .env
     depends_on:
       - postgres-auth
+      - kafka
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: ${ASPNETCORE_URLS}
@@ -215,8 +227,8 @@ services:
       test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 10s
+      start_period: 30s
+      retries: 3
     networks:
       - micro_net
     restart: unless-stopped
@@ -239,7 +251,8 @@ services:
       - micro_net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
+      start_period: 10s
+      retries: 2
     restart: unless-stopped
