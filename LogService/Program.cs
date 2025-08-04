@@ -1,4 +1,7 @@
-﻿using Confluent.Kafka;
+﻿using System;
+using System.Text;
+using System.Security.Claims;
+using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Contracts.Common;
 using LogService.Models;
@@ -10,9 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
-using System;
-using System.Security.Claims;
-using System.Text;
+using MongoDB.Bson;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,22 +49,6 @@ if (string.IsNullOrWhiteSpace(mongoSettings.CollectionName))
 
 builder.Services.Configure<MongoDbSettings>(mongoSettingsSection);
 
-// Registro do cliente Mongo (singleton)
-builder.Services.AddSingleton<IMongoClient>(sp =>
-{
-    var opts = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-    return new MongoClient(opts.ConnectionString);
-});
-
-// Registro da coleção tipada
-builder.Services.AddSingleton(sp =>
-{
-    var opts = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-    var client = sp.GetRequiredService<IMongoClient>();
-    var db = client.GetDatabase(opts.DatabaseName);
-    return db.GetCollection<LogEntry>(opts.CollectionName);
-});
-
 // ===== Kafka & JWT =====
 builder.Services.Configure<KafkaSettings>(
     configuration.GetSection("Kafka"));
@@ -77,7 +62,7 @@ var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
 if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
     throw new InvalidOperationException("JWT Secret não está configurado.");
 
-// ===== Dependency readiness (Mongo + Kafka) =====
+// ===== Dependency readiness (Mongo + Kafka + user creation) =====
 // logger temporário para fase de readiness
 using var tempLoggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug));
 var tempLogger = tempLoggerFactory.CreateLogger("DependencyReadiness");
@@ -86,9 +71,43 @@ var tempLogger = tempLoggerFactory.CreateLogger("DependencyReadiness");
 string mongoConn = mongoSettings.ConnectionString;
 string kafkaBootstrap = configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
 
-// Espera Mongo e Kafka
+// Espera Mongo e Kafka básicos
 await WaitForMongoAsync(mongoConn, tempLogger);
 await WaitForKafkaAsync(kafkaBootstrap, tempLogger);
+
+// Garante usuário limitado no Mongo usando root
+var rootUser = Environment.GetEnvironmentVariable("MONGO_INITDB_ROOT_USERNAME")
+    ?? throw new InvalidOperationException("MONGO_INITDB_ROOT_USERNAME ausente.");
+var rootPass = Environment.GetEnvironmentVariable("MONGO_INITDB_ROOT_PASSWORD")
+    ?? throw new InvalidOperationException("MONGO_INITDB_ROOT_PASSWORD ausente.");
+
+var appDbName = Environment.GetEnvironmentVariable("LOG_DB_NAME")
+    ?? throw new InvalidOperationException("LOG_DB_NAME ausente.");
+var appUser = Environment.GetEnvironmentVariable("LOG_DB_USER")
+    ?? throw new InvalidOperationException("LOG_DB_USER ausente.");
+var appPassword = Environment.GetEnvironmentVariable("LOG_DB_PASSWORD")
+    ?? throw new InvalidOperationException("LOG_DB_PASSWORD ausente.");
+
+// Conexão de root para manipulação
+var rootConnString = $"mongodb://{rootUser}:{rootPass}@mongo:27017/admin?authSource=admin&retryWrites=true&w=majority";
+await EnsureMongoUserAndDbAsync(rootConnString, appDbName, appUser, appPassword, tempLogger);
+
+// Agora registra client Mongo com usuário limitado
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    // monta connection string do app user
+    var limitedConn = $"mongodb://{appUser}:{appPassword}@mongo:27017/{appDbName}?authSource={appDbName}&retryWrites=true&w=majority";
+    return new MongoClient(limitedConn);
+});
+
+// Registro da coleção tipada usando o usuário limitado
+builder.Services.AddSingleton(sp =>
+{
+    var opts = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
+    var client = sp.GetRequiredService<IMongoClient>();
+    var db = client.GetDatabase(opts.DatabaseName);
+    return db.GetCollection<LogEntry>(opts.CollectionName);
+});
 
 // ===== Autenticação JWT =====
 builder.Services
@@ -123,7 +142,7 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 logger.LogInformation("LogService iniciado em ambiente {Env}", env.EnvironmentName);
 logger.LogInformation("JWT Issuer: {Issuer}, Audience: {Audience}", jwtSettings.Issuer, jwtSettings.Audience);
-logger.LogInformation("Mongo connection string: {Conn}", mongoConn);
+logger.LogInformation("Mongo connection string (root): {Conn}", mongoConn);
 logger.LogInformation("Kafka bootstrap servers: {Bootstrap}", kafkaBootstrap);
 
 // pipeline
@@ -199,6 +218,67 @@ static async Task WaitForMongoAsync(string connectionString, ILogger logger, int
                 throw;
             }
             logger.LogWarning("Mongo não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
+            await Task.Delay(delay);
+            delay = delay * 2;
+        }
+    }
+}
+
+static async Task EnsureMongoUserAndDbAsync(
+    string rootConnectionString,
+    string appDbName,
+    string appUser,
+    string appPassword,
+    ILogger logger,
+    int maxRetries = 5)
+{
+    int attempt = 0;
+    TimeSpan delay = TimeSpan.FromSeconds(1);
+
+    while (true)
+    {
+        try
+        {
+            var rootClient = new MongoClient(rootConnectionString);
+            var appDb = rootClient.GetDatabase(appDbName);
+
+            // Verifica se o usuário já existe
+            var usersInfo = await appDb.RunCommandAsync<BsonDocument>(new BsonDocument { { "usersInfo", appUser } });
+            var userArray = usersInfo.GetValue("users").AsBsonArray;
+
+            if (userArray.Count == 0)
+            {
+                logger.LogInformation("Usuário Mongo '{User}' não existe em '{Db}', criando com role readWrite.", appUser, appDbName);
+                var createUserCmd = new BsonDocument
+                {
+                    { "createUser", appUser },
+                    { "pwd", appPassword },
+                    {
+                        "roles", new BsonArray
+                        {
+                            new BsonDocument { { "role", "readWrite" }, { "db", appDbName } }
+                        }
+                    }
+                };
+                await appDb.RunCommandAsync<BsonDocument>(createUserCmd);
+                logger.LogInformation("Usuário Mongo criado com sucesso.");
+            }
+            else
+            {
+                logger.LogInformation("Usuário Mongo '{User}' já existe em '{Db}'.", appUser, appDbName);
+            }
+
+            return;
+        }
+        catch (Exception ex)
+        {
+            attempt++;
+            if (attempt >= maxRetries)
+            {
+                logger.LogError(ex, "Falha garantindo usuário Mongo após {Attempt} tentativas.", attempt);
+                throw;
+            }
+            logger.LogWarning("Tentativa {Attempt} para garantir usuário Mongo falhou, retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
             await Task.Delay(delay);
             delay = delay * 2;
         }
