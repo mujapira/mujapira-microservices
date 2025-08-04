@@ -104,13 +104,15 @@ if (env.IsDevelopment())
 else
     logger.LogInformation("CORS policy: production mode, restricting origins.");
 
+app.UseRouting();
+
 // endpoints básicos
 app.MapHealthChecks("/health");
-
 
 app.UseCors("DynamicCorsPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseOcelot().Wait();
+
+await app.UseOcelot();
 
 app.Run();
