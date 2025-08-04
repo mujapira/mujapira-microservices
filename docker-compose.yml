@@ -161,7 +161,6 @@ services:
     env_file:
       - .env
     depends_on:
-      - kafka
       - mongo
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
@@ -185,7 +184,6 @@ services:
     env_file:
       - .env
     depends_on:
-      - kafka
       - postgres-user
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
@@ -210,7 +208,6 @@ services:
       - .env
     depends_on:
       - postgres-auth
-      - kafka
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: ${ASPNETCORE_URLS}
