@@ -150,6 +150,7 @@ services:
       start_period: 10s
     networks:
       - micro_net
+    restart: unless-stopped
 
   logservice:
     build:
@@ -160,21 +161,20 @@ services:
     env_file:
       - .env
     depends_on:
-      kafka:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
+      - kafka
+      - mongo
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: ${ASPNETCORE_URLS}
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
       - micro_net
+    restart: unless-stopped
 
   userservice:
     build:
@@ -185,21 +185,20 @@ services:
     env_file:
       - .env
     depends_on:
-      kafka:
-        condition: service_healthy
-      postgres-user:
-        condition: service_healthy
+      - kafka
+      - postgres-user
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: ${ASPNETCORE_URLS}
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
       - micro_net
+    restart: unless-stopped
 
   authservice:
     build:
@@ -210,19 +209,20 @@ services:
     env_file:
       - .env
     depends_on:
-      postgres-auth:
-        condition: service_healthy
+      - postgres-auth
+      - kafka
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
       ASPNETCORE_URLS: ${ASPNETCORE_URLS}
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:5000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
       - micro_net
+    restart: unless-stopped
 
   apigateway:
     build:
@@ -245,3 +245,4 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    restart: unless-stopped

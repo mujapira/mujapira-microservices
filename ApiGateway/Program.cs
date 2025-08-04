@@ -46,6 +46,7 @@ builder.Services.AddCors(options =>
 
 // health
 builder.Services.AddHealthChecks();
+builder.Services.AddHttpClient();
 
 // JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
@@ -107,6 +108,69 @@ else
 
 // endpoints básicos
 app.MapHealthChecks("/health");
+
+app.MapGet("/ready", async (IHttpClientFactory httpFactory, ILogger<Program> logger) =>
+{
+    var downstreams = new[]
+    {
+        new { Name = "authservice", Url = "http://authservice:5000/health" },
+        new { Name = "userservice", Url = "http://userservice:5000/health" },
+        new { Name = "logservice", Url = "http://logservice:5000/health" }
+    };
+
+    var overallHealthy = true;
+    var detail = new Dictionary<string, object>();
+
+    foreach (var svc in downstreams)
+    {
+        using var client = httpFactory.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(2);
+        try
+        {
+            var resp = await client.GetAsync(svc.Url);
+            if (resp.IsSuccessStatusCode)
+            {
+                detail[svc.Name] = new
+                {
+                    status = "Healthy",
+                    httpStatus = (int)resp.StatusCode
+                };
+            }
+            else
+            {
+                overallHealthy = false;
+                detail[svc.Name] = new
+                {
+                    status = "Unhealthy",
+                    httpStatus = (int)resp.StatusCode,
+                    reason = $"Status code {resp.StatusCode}"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            overallHealthy = false;
+            detail[svc.Name] = new
+            {
+                status = "Unavailable",
+                error = ex.Message
+            };
+        }
+    }
+
+    var result = new
+    {
+        status = overallHealthy ? "Healthy" : "Degraded",
+        services = detail
+    };
+
+    return overallHealthy
+        ? Results.Ok(result)
+        : Results.StatusCode(500);
+})
+.WithName("Readiness");
+
+
 
 // pipeline
 app.UseCors("DynamicCorsPolicy");
