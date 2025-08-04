@@ -53,6 +53,9 @@
       },
       "RouteClaimsRequirement": {
         "Role": "Admin,User"
+      },
+      "UpstreamHeaderTransform": {
+        "Authorization": "{Authorization}"
       }
     },
     {
@@ -71,6 +74,9 @@
       },
       "RouteClaimsRequirement": {
         "Role": "Admin,User"
+      },
+      "UpstreamHeaderTransform": {
+        "Authorization": "{Authorization}"
       }
     },
     {
@@ -89,6 +95,9 @@
       },
       "RouteClaimsRequirement": {
         "Role": "Admin"
+      },
+      "UpstreamHeaderTransform": {
+        "Authorization": "{Authorization}"
       }
     },
     {
