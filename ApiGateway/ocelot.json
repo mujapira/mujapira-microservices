@@ -49,8 +49,10 @@
         }
       ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "Role": "Admin,User"
       }
     },
     {
@@ -65,8 +67,10 @@
         }
       ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "Role": "Admin,User"
       }
     },
     {
@@ -81,8 +85,7 @@
         }
       ],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
+        "AuthenticationProviderKey": "Bearer"
       },
       "RouteClaimsRequirement": {
         "Role": "Admin"
