@@ -27,6 +27,11 @@ RUN dotnet publish "LogService.csproj" -c Release -o /app/publish --no-restore
 FROM base AS final
 WORKDIR /app
 
+# instala curl (pra healthcheck) sem lixo
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # 6) Copia os artefatos gerados
 COPY --from=build /app/publish ./
 
