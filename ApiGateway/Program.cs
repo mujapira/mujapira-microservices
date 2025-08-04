@@ -4,23 +4,22 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Ocelot.DependencyInjection;
 using Ocelot.Middleware;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var env = builder.Environment;
 
-// expõe em 5000
+// 1) URLs & Configuration
 builder.WebHost.UseUrls("http://+:5000");
-
-// configurações do appsettings / ocelot.json / env vars
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
     .AddEnvironmentVariables();
 
-var env = builder.Environment;
-
-// CORS
+// 2) Core services
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DynamicCorsPolicy", policy =>
@@ -43,21 +42,15 @@ builder.Services.AddCors(options =>
         }
     });
 });
-
-
-// health checks & http client
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpClient();
-
-// configurações JWT
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+
+// 3) JWT authentication & authorization
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
     ?? throw new InvalidOperationException("Seção JwtSettings está ausente.");
-
-if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
-    throw new InvalidOperationException("JWT Secret não está configurado.");
-if (jwtSettings.Secret.Length < 16)
-    throw new InvalidOperationException("JWT Secret é muito curto; use um secreto forte e aleatório.");
+if (string.IsNullOrWhiteSpace(jwtSettings.Secret) || jwtSettings.Secret.Length < 16)
+    throw new InvalidOperationException("JWT Secret não está configurado ou é muito curto.");
 
 builder.Services
     .AddAuthentication(options =>
@@ -81,30 +74,29 @@ builder.Services
             RoleClaimType = ClaimTypes.Role
         };
     });
+builder.Services.AddAuthorization();
 
-// logging
+// 4) Ocelot + token forwarding
+builder.Services
+    .AddOcelot(builder.Configuration)
+    .AddDelegatingHandler<TokenForwardingHandler>(true);
+
+// 5) Logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
-// Ocelot
-builder.Services.AddOcelot(builder.Configuration);
-
-
 var app = builder.Build();
 
+// 6) Log CORS mode
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-if (env.IsDevelopment())
-    logger.LogInformation("CORS policy: development mode, allowing all origins T.");
-else
-    logger.LogInformation("CORS policy: production mode, restricting origins T.");
+logger.LogInformation("CORS policy: {Mode}", env.IsDevelopment() ? "development" : "production");
 
-
+// 7) Middleware pipeline
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
-
 
 app.UseRouting();
 
@@ -117,7 +109,24 @@ app.UseEndpoints(endpoints =>
     endpoints.MapHealthChecks("/health");
 });
 
-// **4) Ocelot por último**
 await app.UseOcelot();
 
 app.Run();
+
+public class TokenForwardingHandler : DelegatingHandler
+{
+    private readonly IHttpContextAccessor _accessor;
+    public TokenForwardingHandler(IHttpContextAccessor accessor) =>
+        _accessor = accessor;
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var header = _accessor.HttpContext?.Request.Headers["Authorization"].ToString();
+        if (!string.IsNullOrEmpty(header))
+            request.Headers.Authorization = AuthenticationHeaderValue.Parse(header);
+
+        return base.SendAsync(request, cancellationToken);
+    }
+}

@@ -13,6 +13,18 @@ public class UsersController(IUserService userService) : ControllerBase
 {
     private readonly IUserService _userService = userService;
 
+    [HttpGet("me")]
+    public async Task<ActionResult<UserDto>> Me()
+    {
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(idClaim, out var userId))
+            return Unauthorized();
+
+        var user = await _userService.GetById(userId);
+        if (user is null) return NotFound();
+        return Ok(user);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetAll()
     {
@@ -67,15 +79,5 @@ public class UsersController(IUserService userService) : ControllerBase
         return Ok(user);
     }
 
-    [HttpGet("me")]
-    public async Task<ActionResult<UserDto>> Me()
-    {
-        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!Guid.TryParse(idClaim, out var userId))
-            return Unauthorized();
 
-        var user = await _userService.GetById(userId);
-        if (user is null) return NotFound();
-        return Ok(user);
-    }
 }

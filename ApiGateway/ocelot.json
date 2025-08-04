@@ -60,7 +60,7 @@
     },
     {
       "UpstreamPathTemplate": "/users/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
+      "UpstreamHttpMethod": [ "GET", "PUT" ],
       "DownstreamPathTemplate": "/api/users/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -74,6 +74,27 @@
       },
       "RouteClaimsRequirement": {
         "Role": "Admin,User"
+      },
+      "UpstreamHeaderTransform": {
+        "Authorization": "{Authorization}"
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/users/{everything}",
+      "UpstreamHttpMethod": [ "DELETE" ],
+      "DownstreamPathTemplate": "/api/users/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "userservice",
+          "Port": 5002
+        }
+      ],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer"
+      },
+      "RouteClaimsRequirement": {
+        "Role": "Admin"
       },
       "UpstreamHeaderTransform": {
         "Authorization": "{Authorization}"
