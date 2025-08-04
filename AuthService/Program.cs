@@ -17,6 +17,7 @@ using StackExchange.Redis;
 using System;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,20 +34,10 @@ if (string.IsNullOrWhiteSpace(redisPassword))
 
 var redisEndpoint = $"{redisHost}:{redisPort}";
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-{
-    var options = new ConfigurationOptions
-    {
-        EndPoints = { redisEndpoint },
-        Password = redisPassword,
-        AbortOnConnectFail = false,
-        ClientName = "auth-service",
-        ConnectRetry = 3,
-        ConnectTimeout = 5000
-    };
-
-    return ConnectionMultiplexer.Connect(options);
-});
+// ===== logging precoce para readiness =====
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
 // ===== Settings binding & validation =====
 builder.Services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
@@ -59,32 +50,51 @@ var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
 
 if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
     throw new InvalidOperationException("JWT secret não está configurado.");
-
 if (jwtSettings.Secret.Length < 16)
     throw new InvalidOperationException("JWT secret é muito curto; use um secreto forte.");
 
-// ===== Dependency readiness (Postgres + Kafka) =====
-// Criar logger temporário para essa fase
+// ===== Dependency readiness (Postgres + Kafka + Redis) =====
+// logger temporário para essa fase
 using var tempLoggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug));
 var tempLogger = tempLoggerFactory.CreateLogger("DependencyReadiness");
 
 // Strings de conexão / bootstrap
-string postgresConn = builder.Configuration.GetConnectionString("Auth")
+string postgresConn = configuration.GetConnectionString("Auth")
     ?? throw new InvalidOperationException("Connection string 'Auth' não está configurada.");
-string kafkaBootstrap = builder.Configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
+string kafkaBootstrap = configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
 
-// Espera o Postgres e Kafka antes de prosseguir
+// espera os três
 await WaitForPostgresAsync(postgresConn, tempLogger);
 await WaitForKafkaAsync(kafkaBootstrap, tempLogger);
+await WaitForRedisAsync(redisEndpoint, redisPassword, tempLogger);
 
-// ===== Infrastructure =====
+// ===== Infraestrutura após dependências =====
+// Redis multiplexer (rate limiter)
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var options = new ConfigurationOptions
+    {
+        EndPoints = { redisEndpoint },
+        Password = redisPassword,
+        AbortOnConnectFail = false,
+        ClientName = "auth-service",
+        ConnectRetry = 3,
+        ConnectTimeout = 5000
+    };
+    return ConnectionMultiplexer.Connect(options);
+});
+
+// Kafka producer
 builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
 
+// Postgres / EF
 builder.Services.AddDbContext<AuthDbContext>(opts =>
-    opts.UseNpgsql(configuration.GetConnectionString("Auth")));
+    opts.UseNpgsql(postgresConn));
 
+// migração automática
 builder.Services.AddHostedService<MigrationService>();
 
+// API gateway client
 var gatewayUrl = configuration["Services:ApiGateway"];
 if (string.IsNullOrWhiteSpace(gatewayUrl))
     throw new InvalidOperationException("ApiGateway URL is not configured.");
@@ -112,11 +122,11 @@ builder.Services
         };
     });
 
-// ===== Auth / App =====
+// ===== App =====
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService.Services.AuthService>();
-
 builder.Services.AddControllers();
+builder.Services.AddHealthChecks(); // health endpoint
 
 // ===== Cookie policy =====
 builder.Services.AddCookiePolicy(options =>
@@ -127,11 +137,6 @@ builder.Services.AddCookiePolicy(options =>
         : CookieSecurePolicy.SameAsRequest;
 });
 
-// ===== Logging =====
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.SetMinimumLevel(LogLevel.Debug);
-
 var app = builder.Build();
 
 // ===== logging info =====
@@ -140,6 +145,7 @@ logger.LogInformation("AuthService iniciado em ambiente {Env}", env.EnvironmentN
 logger.LogInformation("JWT Issuer: {Issuer}, Audience: {Audience}", jwtSettings.Issuer, jwtSettings.Audience);
 logger.LogInformation("Postgres connection: {Conn}", postgresConn);
 logger.LogInformation("Kafka bootstrap servers: {Bootstrap}", kafkaBootstrap);
+logger.LogInformation("Redis endpoint: {Redis}", redisEndpoint);
 
 // ===== pipeline =====
 if (app.Environment.IsProduction())
@@ -149,9 +155,14 @@ if (app.Environment.IsProduction())
 }
 
 app.UseHostFiltering();
-app.UseCookiePolicy(); // precisa antes de auth if você depende
+app.UseCookiePolicy();
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHealthChecks("/health");
+
+// readiness simples combinando dependências (opcional, pode expandir)
+app.MapGet("/ready", () => Results.Ok(new { status = "ready" })).WithName("Readiness");
 
 app.MapControllers();
 
@@ -199,6 +210,9 @@ static async Task WaitForPostgresAsync(string connectionString, ILogger logger, 
         {
             await using var conn = new NpgsqlConnection(connectionString);
             await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT 1";
+            await cmd.ExecuteScalarAsync();
             logger.LogInformation("Postgres disponível.");
             return;
         }
@@ -211,6 +225,43 @@ static async Task WaitForPostgresAsync(string connectionString, ILogger logger, 
                 throw;
             }
             logger.LogWarning("Postgres não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
+            await Task.Delay(delay);
+            delay = delay * 2;
+        }
+    }
+}
+
+static async Task WaitForRedisAsync(string endpoint, string password, ILogger logger, int maxRetries = 8)
+{
+    int attempt = 0;
+    TimeSpan delay = TimeSpan.FromSeconds(1);
+    var config = new ConfigurationOptions
+    {
+        EndPoints = { endpoint },
+        Password = password,
+        AbortOnConnectFail = false,
+        ConnectTimeout = 2000
+    };
+
+    while (true)
+    {
+        try
+        {
+            using var mux = await ConnectionMultiplexer.ConnectAsync(config);
+            var db = mux.GetDatabase();
+            var pong = await db.PingAsync();
+            logger.LogInformation("Redis disponível (ping {Ping}ms).", pong.TotalMilliseconds);
+            return;
+        }
+        catch (Exception ex)
+        {
+            attempt++;
+            if (attempt >= maxRetries)
+            {
+                logger.LogError(ex, "Não foi possível conectar ao Redis após {Attempt} tentativas.", attempt);
+                throw;
+            }
+            logger.LogWarning("Redis não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
             await Task.Delay(delay);
             delay = delay * 2;
         }
