@@ -44,7 +44,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// health
+// health & http client
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpClient();
 
@@ -58,7 +58,7 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
 if (jwtSettings.Secret.Length < 16)
     throw new InvalidOperationException("JWT Secret é muito curto; use um secreto forte e aleatório.");
 
-// Autenticação JWT (mapeamento padrão ativo)
+// Autenticação JWT
 builder.Services
     .AddAuthentication(options =>
     {
@@ -68,7 +68,6 @@ builder.Services
     .AddJwtBearer(options =>
     {
         options.RequireHttpsMetadata = env.IsProduction();
-        // NÃO desative o MapInboundClaims: deixamos o padrão para que "role" vire ClaimTypes.Role
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -79,7 +78,6 @@ builder.Services
             ClockSkew = TimeSpan.Zero,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
             ValidateIssuerSigningKey = true,
-            // RoleClaimType padrão já é ClaimTypes.Role, pode omitir, mas deixamos para clareza
             RoleClaimType = ClaimTypes.Role
         };
     });
@@ -166,18 +164,20 @@ app.MapGet("/ready", async (IHttpClientFactory httpFactory, ILogger<Program> log
 
     return overallHealthy
         ? Results.Ok(result)
-        : Results.StatusCode(500);
+        : Results.StatusCode(503);
 })
 .WithName("Readiness");
 
-
-
-// pipeline
-app.UseCors("DynamicCorsPolicy");
-app.UseAuthentication();
-app.UseAuthorization();
-
-// Ocelot por último
-await app.UseOcelot();
+// pipeline condicional: só aplica Ocelot/CORS/Auth para rotas que não sejam /health ou /ready
+app.UseWhen(context =>
+    !context.Request.Path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase) &&
+    !context.Request.Path.StartsWithSegments("/ready", StringComparison.OrdinalIgnoreCase),
+    appBuilder =>
+    {
+        appBuilder.UseCors("DynamicCorsPolicy");
+        appBuilder.UseAuthentication();
+        appBuilder.UseAuthorization();
+        appBuilder.UseOcelot().Wait();
+    });
 
 app.Run();
