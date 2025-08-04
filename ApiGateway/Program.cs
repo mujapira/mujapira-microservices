@@ -111,9 +111,9 @@ app.MapGet("/ready", async (IHttpClientFactory httpFactory, ILogger<Program> log
 {
     var downstreams = new[]
     {
-        new { Name = "authservice", Url = "http://locahost:5003/health" },
-        new { Name = "userservice", Url = "http://locahost:5002/health" },
-        new { Name = "logservice", Url = "http://locahost:5001/health" }
+        new { Name = "authservice", Url = "http://localhost:5003/health" },
+        new { Name = "userservice", Url = "http://localhost:5002/health" },
+        new { Name = "logservice", Url = "http://localhost:5001/health" }
     };
 
     var overallHealthy = true;
