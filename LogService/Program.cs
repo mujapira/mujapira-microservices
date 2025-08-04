@@ -67,15 +67,7 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
 using var tempLoggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug));
 var tempLogger = tempLoggerFactory.CreateLogger("DependencyReadiness");
 
-// Strings de conexão
-string mongoConn = mongoSettings.ConnectionString;
-string kafkaBootstrap = configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
-
-// Espera Mongo e Kafka básicos
-await WaitForMongoAsync(mongoConn, tempLogger);
-await WaitForKafkaAsync(kafkaBootstrap, tempLogger);
-
-// Garante usuário limitado no Mongo usando root
+// Captura credenciais do root e app (limitado)
 var rootUser = Environment.GetEnvironmentVariable("MONGO_INITDB_ROOT_USERNAME")
     ?? throw new InvalidOperationException("MONGO_INITDB_ROOT_USERNAME ausente.");
 var rootPass = Environment.GetEnvironmentVariable("MONGO_INITDB_ROOT_PASSWORD")
@@ -88,16 +80,32 @@ var appUser = Environment.GetEnvironmentVariable("LOG_DB_USER")
 var appPassword = Environment.GetEnvironmentVariable("LOG_DB_PASSWORD")
     ?? throw new InvalidOperationException("LOG_DB_PASSWORD ausente.");
 
-// Conexão de root para manipulação
-var rootConnString = $"mongodb://{rootUser}:{rootPass}@mongo:27017/admin?authSource=admin&retryWrites=true&w=majority";
+// Escapa os valores para evitar problemas com caracteres especiais
+string Escape(string s) => Uri.EscapeDataString(s);
+
+// Strings de bootstrap Kafka (vinda da configuração, fallback)
+string kafkaBootstrap = configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
+
+// Monta connection string root e limitado com escape
+var escapedRootUser = Escape(rootUser);
+var escapedRootPass = Escape(rootPass);
+var rootConnString = $"mongodb://{escapedRootUser}:{escapedRootPass}@mongo:27017/admin?authSource=admin&retryWrites=true&w=majority";
+
+var escapedAppUser = Escape(appUser);
+var escapedAppPassword = Escape(appPassword);
+var limitedConnString = $"mongodb://{escapedAppUser}:{escapedAppPassword}@mongo:27017/{appDbName}?authSource={appDbName}&retryWrites=true&w=majority";
+
+// Espera Mongo (via root) e Kafka
+await WaitForMongoAsync(rootConnString, tempLogger);
+await WaitForKafkaAsync(kafkaBootstrap, tempLogger);
+
+// Garante usuário limitado no Mongo usando root
 await EnsureMongoUserAndDbAsync(rootConnString, appDbName, appUser, appPassword, tempLogger);
 
-// Agora registra client Mongo com usuário limitado
+// Agora registra client Mongo com usuário limitado (usando a string segura)
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
-    // monta connection string do app user
-    var limitedConn = $"mongodb://{appUser}:{appPassword}@mongo:27017/{appDbName}?authSource={appDbName}&retryWrites=true&w=majority";
-    return new MongoClient(limitedConn);
+    return new MongoClient(limitedConnString);
 });
 
 // Registro da coleção tipada usando o usuário limitado
@@ -138,11 +146,11 @@ builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
-// log inicial para debug
+// log inicial para debug (não logar secrets inteiros)
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 logger.LogInformation("LogService iniciado em ambiente {Env}", env.EnvironmentName);
 logger.LogInformation("JWT Issuer: {Issuer}, Audience: {Audience}", jwtSettings.Issuer, jwtSettings.Audience);
-logger.LogInformation("Mongo connection string (root): {Conn}", mongoConn);
+logger.LogInformation("Mongo root user: {User}, app db: {Db}", rootUser, appDbName);
 logger.LogInformation("Kafka bootstrap servers: {Bootstrap}", kafkaBootstrap);
 
 // pipeline
@@ -278,9 +286,6 @@ static async Task EnsureMongoUserAndDbAsync(
                 logger.LogError(ex, "Falha garantindo usuário Mongo após {Attempt} tentativas.", attempt);
                 throw;
             }
-            logger.LogWarning("Tentativa {Attempt} para garantir usuário Mongo falhou, retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
-            await Task.Delay(delay);
-            delay = delay * 2;
         }
     }
 }
