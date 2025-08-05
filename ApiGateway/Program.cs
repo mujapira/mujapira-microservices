@@ -116,16 +116,32 @@ app.Run();
 public class TokenForwardingHandler : DelegatingHandler
 {
     private readonly IHttpContextAccessor _accessor;
-    public TokenForwardingHandler(IHttpContextAccessor accessor) =>
+    private readonly ILogger<TokenForwardingHandler> _logger;
+    public TokenForwardingHandler(
+          IHttpContextAccessor accessor,
+          ILogger<TokenForwardingHandler> logger)
+    {
         _accessor = accessor;
+        _logger = logger;
+    }
 
     protected override Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request,
-        CancellationToken cancellationToken)
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
     {
-        var header = _accessor.HttpContext?.Request.Headers["Authorization"].ToString();
+        var header = _accessor.HttpContext?
+                          .Request.Headers["Authorization"]
+                          .ToString();
+
+        _logger.LogDebug(
+            ">> TokenForwardingHandler – Header Authorization: {Auth}",
+            header);
+
         if (!string.IsNullOrEmpty(header))
-            request.Headers.Authorization = AuthenticationHeaderValue.Parse(header);
+        {
+            request.Headers.Authorization =
+                AuthenticationHeaderValue.Parse(header);
+        }
 
         return base.SendAsync(request, cancellationToken);
     }

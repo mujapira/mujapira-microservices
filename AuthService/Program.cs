@@ -156,6 +156,15 @@ if (app.Environment.IsProduction())
 
 app.UseHostFiltering();
 app.UseCookiePolicy();
+
+app.Use(async (ctx, next) =>
+{
+    var hasAuth = ctx.Request.Headers.TryGetValue("Authorization", out var val);
+    var logger = ctx.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogDebug(">> UserService received Authorization header? {Has} – {Val}", hasAuth, val);
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
