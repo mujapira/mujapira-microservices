@@ -31,12 +31,13 @@ namespace AuthService.Services
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                issuer: _jwt.Issuer,
-                audience: _jwt.Audience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(_jwt.AccessTokenExpirationMinutes),
-                signingCredentials: creds
-            );
+                  issuer: _jwt.Issuer,
+                  audience: _jwt.Audience,
+                  claims: claims,
+                  notBefore: DateTime.UtcNow,
+                  expires: DateTime.UtcNow.AddMinutes(_jwt.AccessTokenExpirationMinutes),
+                  signingCredentials: creds
+             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
