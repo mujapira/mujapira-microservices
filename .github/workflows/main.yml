@@ -70,6 +70,7 @@ jobs:
           JwtSettings__Secret=${{ secrets.JWT_SECRET }}
           JwtSettings__Issuer=AuthService
           JwtSettings__Audience=MyApp
+          JwtSettings__AccessTokenExpirationMinutes=${{ secrets.JwtSettings__AccessTokenExpirationMinutes }}
 
           # Auth Postgres
           AUTH_POSTGRES_DB=${{ secrets.AUTH_POSTGRES_DB }}

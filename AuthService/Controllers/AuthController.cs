@@ -61,7 +61,7 @@ public class AuthController : ControllerBase
         {
             accessToken = accessToken,
             tokenType = "Bearer",
-            expiresIn = _jwtSettings.AccessTokenExpirationMinutes * 60 // segundos
+            expiresIn = _jwtSettings.AccessTokenExpirationMinutes
         };
     }
 
