@@ -49,6 +49,16 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
 if (jwtSettings.Secret.Length < 16)
     throw new InvalidOperationException("JWT Secret é muito curto; use um secreto forte e aleatório.");
 
+
+if (jwtSettings.AccessTokenExpirationMinutes <= 0)
+    throw new InvalidOperationException(
+        $"AccessTokenExpirationMinutes inválido: {jwtSettings.AccessTokenExpirationMinutes}. Deve ser > 0.");
+
+if (jwtSettings.RefreshTokenExpirationDays <= 0)
+    throw new InvalidOperationException(
+        $"RefreshTokenExpirationDays inválido: {jwtSettings.RefreshTokenExpirationDays}. Deve ser > 0.");
+
+
 // Autenticação JWT
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

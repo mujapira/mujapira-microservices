@@ -50,8 +50,17 @@ var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
 
 if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
     throw new InvalidOperationException("JWT secret não está configurado.");
+
 if (jwtSettings.Secret.Length < 16)
     throw new InvalidOperationException("JWT secret é muito curto; use um secreto forte.");
+
+if (jwtSettings.AccessTokenExpirationMinutes <= 0)
+    throw new InvalidOperationException(
+        $"AccessTokenExpirationMinutes inválido: {jwtSettings.AccessTokenExpirationMinutes}. Deve ser > 0.");
+
+if (jwtSettings.RefreshTokenExpirationDays <= 0)
+    throw new InvalidOperationException(
+        $"RefreshTokenExpirationDays inválido: {jwtSettings.RefreshTokenExpirationDays}. Deve ser > 0.");
 
 // ===== Dependency readiness (Postgres + Kafka + Redis) =====
 // logger temporário para essa fase
