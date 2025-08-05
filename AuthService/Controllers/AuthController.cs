@@ -47,15 +47,19 @@ public class AuthController : ControllerBase
         };
     }
 
+    private static readonly string[] _allowedOrigins = new[]
+    {
+        "https://mujapira.com",
+        "https://www.mujapira.com",
+        "http://localhost:3000"
+    };
+
     private bool IsAllowedOrigin(string? origin)
     {
-        if (string.IsNullOrWhiteSpace(origin))
+        if (string.IsNullOrEmpty(origin))
             return false;
 
-        if (_env.IsDevelopment())
-            return true; // em dev relaxa
-
-        return origin.Equals("https://mujapira.com", StringComparison.OrdinalIgnoreCase);
+        return _allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
     }
 
     private object BuildAccessTokenResponse(string accessToken)

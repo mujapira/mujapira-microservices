@@ -71,6 +71,7 @@ jobs:
           JwtSettings__Issuer=AuthService
           JwtSettings__Audience=MyApp
           JwtSettings__AccessTokenExpirationMinutes=${{ secrets.JwtSettings__AccessTokenExpirationMinutes }}
+          JwtSettings__RefreshTokenExpirationDays=${{ secrets.JwtSettings__RefreshTokenExpirationDays }}
 
           # Auth Postgres
           AUTH_POSTGRES_DB=${{ secrets.AUTH_POSTGRES_DB }}
