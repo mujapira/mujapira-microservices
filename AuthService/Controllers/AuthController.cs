@@ -39,6 +39,9 @@ public class AuthController : ControllerBase
             HttpOnly = true,
             Secure = secureFlag,
             SameSite = SameSiteMode.Strict,
+            Domain = _env.IsProduction()
+                     ? ".mujapira.com"
+                     : "localhost",
             Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
             Path = "/"
         };

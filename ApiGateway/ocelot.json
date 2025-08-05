@@ -131,7 +131,10 @@
           "Host": "authservice",
           "Port": 5003
         }
-      ]
+      ],
+      "HttpHandlerOptions": {
+        "UseCookieContainer": true
+      }
     }
   ],
   "GlobalConfiguration": {
