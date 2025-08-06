@@ -39,9 +39,9 @@ public class KafkaLogConsumer(
         };
 
         using var consumer = new ConsumerBuilder<Ignore, string>(consumerConfig).Build();
-        consumer.Subscribe(_kafkaSettings.Topic);
+        consumer.Subscribe(new[] { "logs", "users", "auth" });
 
-        _logger.LogInformation("Kafka consumer iniciado, escutando tópico '{Topic}'", _kafkaSettings.Topic);
+        _logger.LogInformation("Kafka consumer iniciado, escutando tópico '{Topic}'", new[] { "logs", "users", "auth" });
 
         while (!stoppingToken.IsCancellationRequested)
         {

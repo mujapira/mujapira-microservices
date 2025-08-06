@@ -1,7 +1,9 @@
+using Contracts.Common;
 using Contracts.Logs;
 using LogService.Models;
 using LogService.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 
 namespace LogService.Controllers;
 
@@ -10,6 +12,39 @@ namespace LogService.Controllers;
 public class LogsController(ILogService logService) : ControllerBase
 {
     private readonly ILogService _logService = logService;
+
+    public class LogQueryParameters : PagingDto
+    {
+        public List<RegisteredMicroservices>? Sources { get; set; }
+
+        /// <summary>Você pode passar múltiplos ?levels=Error&levels=Fatal</summary>
+        public List<Contracts.Logs.LogLevel>? Levels { get; set; }
+
+        /// <summary>Data/hora inicial (ISO)</summary>
+        public DateTime? From { get; set; }
+
+        /// <summary>Data/hora final (ISO)</summary>
+        public DateTime? To { get; set; }
+
+        /// <summary>Busca parcial no texto da mensagem</summary>
+        public string? MessageContains { get; set; }
+
+        /// <summary>Filtra por metadata chave/valor</summary>
+        public string? MetadataKey { get; set; }
+        public string? MetadataValue { get; set; }
+    }
+    public class LogQuery
+    {
+        public List<string>? Sources { get; set; }
+        public List<string>? Levels { get; set; }
+        public DateTime? From { get; set; }
+        public DateTime? To { get; set; }
+        public string? MessageContains { get; set; }
+        public string? MetadataKey { get; set; }
+        public string? MetadataValue { get; set; }
+        public int Skip { get; set; }
+        public int Limit { get; set; }
+    }
 
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] LogMessageDto dto)
@@ -30,13 +65,26 @@ public class LogsController(ILogService logService) : ControllerBase
         return Ok(new { success = true });
     }
 
+
     [HttpGet]
-    public async Task<IActionResult> Get(
-        [FromQuery] RegisteredMicroservices? source,
-        [FromQuery] int limit = 100)
+    [HttpGet]
+    public async Task<IActionResult> GetLogs(
+            [FromQuery] LogQueryParameters q)
     {
-        var sourceFilter = source?.ToString();
-        var logs = await _logService.GetAll(sourceFilter, limit);
-        return Ok(logs);
+        var query = new LogQuery
+        {
+            Sources = q.Sources?.Select(s => s.ToString()).ToList(),
+            Levels = q.Levels?.Select(l => l.ToString()).ToList(),
+            From = q.From,
+            To = q.To,
+            MessageContains = q.MessageContains,
+            MetadataKey = q.MetadataKey,
+            MetadataValue = q.MetadataValue,
+            Skip = q.Skip,
+            Limit = q.Limit
+        };
+
+        var result = await _logService.GetLogs(query);
+        return Ok(result);
     }
 }

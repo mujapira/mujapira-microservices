@@ -2,6 +2,7 @@
 using LogService.Models;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
+using static LogService.Controllers.LogsController;
 
 namespace LogService.Services;
 
@@ -15,35 +16,49 @@ public class LogService(
     public Task Save(LogEntry entry)
         => _logCollection.InsertOneAsync(entry);
 
-    public async Task<List<LogMessageDto>> GetAll(string? source = null, int limit = 100)
+    public async Task<List<LogEntry>> GetLogs(LogQuery q)
     {
-        FilterDefinition<LogEntry> filter = FilterDefinition<LogEntry>.Empty;
-        if (!string.IsNullOrWhiteSpace(source))
+        var builder = Builders<LogEntry>.Filter;
+        var filter = builder.Empty;
+
+        if (q.Sources != null && q.Sources.Count != 0)
         {
-            if (Enum.TryParse<RegisteredMicroservices>(source, true, out var svc))
-            {
-                filter = Builders<LogEntry>.Filter.Eq(e => e.Source, svc);
-            }
-            else
-            {
-                _logger.LogWarning("GetAllAsync: fonte inválida recebida: {Source}", source);
-                return [];
-            }
+            filter &= builder.In(e => e.Source.ToString(), q.Sources);
         }
 
-        var entries = await _logCollection
-            .Find(filter)
-            .SortByDescending(e => e.Timestamp)
-            .Limit(limit)
-            .ToListAsync();
+        if (q.Levels != null && q.Levels.Count != 0)
+        {
+            filter &= builder.In(e => e.Level.ToString(), q.Levels);
+        }
 
-        return [.. entries
-            .Select(e => new LogMessageDto(
-                e.Source,
-                e.Level,
-                e.Message,
-                e.Timestamp,
-                e.Metadata
-            ))];
+        // datas
+        if (q.From.HasValue)
+            filter &= builder.Gte(x => x.Timestamp, q.From.Value);
+
+        if (q.To.HasValue)
+            filter &= builder.Lte(x => x.Timestamp, q.To.Value);
+
+        // busca parcial na mensagem
+        if (!string.IsNullOrWhiteSpace(q.MessageContains))
+        {
+            filter &= builder.Regex(
+                x => x.Message,
+                new MongoDB.Bson.BsonRegularExpression(q.MessageContains, "i")
+            );
+        }
+
+        // metadata
+        if (!string.IsNullOrWhiteSpace(q.MetadataKey) &&
+            !string.IsNullOrWhiteSpace(q.MetadataValue))
+        {
+            filter &= builder.Eq($"Metadata.{q.MetadataKey}", q.MetadataValue);
+        }
+
+        return await logCollection
+            .Find(filter)
+            .Skip(q.Skip)
+            .Limit(q.Limit)
+            .SortByDescending(x => x.Timestamp)
+            .ToListAsync();
     }
 }

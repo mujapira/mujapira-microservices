@@ -120,6 +120,8 @@ services:
       POSTGRES_PASSWORD: ${USER_POSTGRES_PASSWORD}
     expose:
       - "5432"
+    ports:
+      - "5433:5432"
     volumes:
       - postgres-user-data:/var/lib/postgresql/data
       - ./init-db/user-init:/docker-entrypoint-initdb.d

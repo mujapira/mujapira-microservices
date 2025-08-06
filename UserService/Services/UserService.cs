@@ -63,7 +63,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
             Email = dto.Email,
             Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
             Name = dto.Name,
-            IsAdmin = dto.IsAdmin,
+            IsAdmin = false,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -94,7 +94,6 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
 
         user.Email = dto.Email;
         user.Name = dto.Name;
-        user.IsAdmin = dto.IsAdmin;
         if (!string.IsNullOrWhiteSpace(dto.Password))
             user.Password = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
@@ -102,7 +101,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
         await _ctx.SaveChangesAsync();
 
         var logDto = new LogMessageDto(
-             Source: RegisteredMicroservices.UserService,
+            Source: RegisteredMicroservices.UserService,
             Level: Contracts.Logs.LogLevel.Info,
             Message: "Usuário atualizado",
             Timestamp: DateTime.UtcNow,

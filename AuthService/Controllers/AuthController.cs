@@ -150,31 +150,29 @@ public class AuthController : ControllerBase
 
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    public async Task<IActionResult> Logout()
     {
-        // pega refresh token do body ou cookie
-        string? refreshToken = request.RefreshToken;
-        if (string.IsNullOrWhiteSpace(refreshToken) && Request.Cookies.TryGetValue("refreshToken", out var rtFromCookie))
+        if (!Request.Cookies.TryGetValue("refreshToken", out var oldRefreshToken)
+            || string.IsNullOrWhiteSpace(oldRefreshToken))
         {
-            refreshToken = rtFromCookie;
+            return BadRequest(new { message = "Refresh token não encontrado para logout." });
         }
 
-        if (string.IsNullOrWhiteSpace(refreshToken))
+        var tokenKey = $"rl:refresh:token:{oldRefreshToken}";
+        var (allowed, retryAfter) = await _rateLimiter.TryAcquireAsync(tokenKey, 10, TimeSpan.FromMinutes(1));
+        if (!allowed)
         {
-            return BadRequest(new { message = "Nenhum refresh token fornecido para logout." });
+            Response.Headers["Retry-After"] = retryAfter.ToString();
+            return StatusCode(429, new { message = "Muitas tentativas de logout. Tente novamente em alguns segundos." });
         }
 
-        await _auth.Logout(new LogoutRequest(refreshToken));
+        await _auth.Logout(new LogoutRequest(oldRefreshToken));
 
-        // limpa cookie de refresh
-        Response.Cookies.Append("refreshToken", "", new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddDays(-1),
-            Path = "/"
-        });
+        var isProd = _env.IsProduction();
+        var secureFlag = HttpContext.Request.IsHttps || isProd;
+        var cookieOpts = BuildRefreshCookieOptions(secureFlag);
+        cookieOpts.Expires = DateTime.UtcNow.AddDays(-1);
+        Response.Cookies.Append("refreshToken", "", cookieOpts);
 
         return NoContent();
     }
