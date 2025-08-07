@@ -12,6 +12,7 @@ COPY ["Contracts.Auth/Contracts.Auth.csproj",     "Contracts.Auth/"]
 COPY ["Contracts.Common/Contracts.Common.csproj", "Contracts.Common/"]
 COPY ["Contracts.Logs/Contracts.Logs.csproj",     "Contracts.Logs/"]
 COPY ["Contracts.Users/Contracts.Users.csproj",   "Contracts.Users/"]
+COPY ["Contracts.Mail/Contracts.Mail.csproj",   "Contracts.Mail/"]
 
 # 2) Copia o csproj do UserService
 COPY ["UserService/UserService.csproj", "UserService/"]

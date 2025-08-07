@@ -38,6 +38,7 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\Contracts.Common\Contracts.Common.csproj" />
 	  <ProjectReference Include="..\Contracts.Logs\Contracts.Logs.csproj" />
+	  <ProjectReference Include="..\Contracts.Mail\Contracts.Mail.csproj" />
 	  <ProjectReference Include="..\Contracts.Users\Contracts.Users.csproj" />
 	</ItemGroup>
 

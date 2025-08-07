@@ -18,6 +18,7 @@ namespace Contracts.Logs
     {
         AuthService,
         UserService,
+        MailService,
     }
 
     public record LogMessageDto(

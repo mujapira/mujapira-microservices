@@ -1,30 +1,31 @@
-ï»¿# â€” Stage 1: runtime base
+# — Stage 1: runtime base
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
-# â€” Stage 2: restore & build
+# — Stage 2: restore & build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# 1) Copia apenas os contratos que o LogService consome
+# 1) Copia apenas os contratos que o MailService consome
 COPY ["Contracts.Common/Contracts.Common.csproj", "Contracts.Common/"]
 COPY ["Contracts.Logs/Contracts.Logs.csproj",     "Contracts.Logs/"]
 COPY ["Contracts.Users/Contracts.Users.csproj",     "Contracts.Users/"]
+COPY ["Contracts.Mail/Contracts.Mail.csproj",     "Contracts.Mail/"]
 
-# 2) Copia o csproj do LogService
-COPY ["LogService/LogService.csproj", "LogService/"]
+# 2) Copia o csproj do MailService
+COPY ["MailService/MailService.csproj", "MailService/"]
 
-# 3) Restaura apenas o LogService (jÃ¡ conhece os contratos)
-RUN dotnet restore "LogService/LogService.csproj"
+# 3) Restaura apenas o MailService (já conhece os contratos)
+RUN dotnet restore "MailService/MailService.csproj"
 
 COPY . .
 
-# 5) Publica o LogService em Release
-WORKDIR "/src/LogService"
-RUN dotnet publish "LogService.csproj" -c Release -o /app/publish --no-restore
+# 5) Publica o MailService em Release
+WORKDIR "/src/MailService"
+RUN dotnet publish "MailService.csproj" -c Release -o /app/publish --no-restore
 
-# â€” Stage 3: runtime image
+# — Stage 3: runtime image
 FROM base AS final
 WORKDIR /app
 
@@ -37,4 +38,4 @@ RUN apt-get update && \
 COPY --from=build /app/publish ./
 
 # 7) Entry point
-ENTRYPOINT ["dotnet", "LogService.dll"]
+ENTRYPOINT ["dotnet", "MailService.dll"]

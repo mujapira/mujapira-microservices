@@ -1,24 +1,27 @@
 ﻿using Confluent.Kafka;
-using Microsoft.Extensions.Options;
 using Contracts.Common;
+using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace AuthService.Services;
 
 public class KafkaProducer : IKafkaProducer, IDisposable
 {
     private readonly IProducer<Null, string> _producer;
-    private readonly string _topic;
-
     public KafkaProducer(IOptions<KafkaSettings> opts)
     {
-        var cfg = new ProducerConfig { BootstrapServers = opts.Value.BootstrapServers };
+        var cfg = new ProducerConfig
+        {
+            BootstrapServers = opts.Value.BootstrapServers
+        };
         _producer = new ProducerBuilder<Null, string>(cfg).Build();
-        _topic = opts.Value.Topic;
     }
 
-    public async Task Produce(string message)
+    public async Task Produce<T>(string topic, T message)
     {
-        await _producer.ProduceAsync(_topic, new Message<Null, string> { Value = message });
+        var payload = JsonSerializer.Serialize(message);
+
+        await _producer.ProduceAsync(topic, new Message<Null, string> { Value = payload });
     }
 
     public void Dispose()

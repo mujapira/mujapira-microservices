@@ -10,14 +10,14 @@ using Contracts.Common;
 
 namespace LogService.Services;
 
-public class KafkaLogConsumer(
+public class LogConsumer(
     IOptions<KafkaSettings> kafkaOptions,
     IServiceProvider serviceProvider,
-    ILogger<KafkaLogConsumer> logger) : BackgroundService
+    ILogger<LogConsumer> logger) : BackgroundService
 {
     private readonly KafkaSettings _kafkaSettings = kafkaOptions.Value;
     private readonly IServiceProvider _serviceProvider = serviceProvider;
-    private readonly ILogger<KafkaLogConsumer> _logger = logger;
+    private readonly ILogger<LogConsumer> _logger = logger;
     private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
@@ -39,9 +39,16 @@ public class KafkaLogConsumer(
         };
 
         using var consumer = new ConsumerBuilder<Ignore, string>(consumerConfig).Build();
-        consumer.Subscribe(new[] { "logs", "users", "auth" });
 
-        _logger.LogInformation("Kafka consumer iniciado, escutando tópico '{Topic}'", new[] { "logs", "users", "auth" });
+        var logTopics = Enum
+            .GetValues<LogKafkaTopics>()
+            .Cast<LogKafkaTopics>()
+            .Select(t => t.GetTopicName())
+            .ToList();
+
+        consumer.Subscribe(logTopics);
+
+        _logger.LogInformation("Kafka consumer iniciado, escutando tópico '{Topic}'", logTopics);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -118,31 +125,37 @@ public class KafkaLogConsumer(
 
     private async Task CreateTopic()
     {
-        var adminConfig = new AdminClientConfig { BootstrapServers = _kafkaSettings.BootstrapServers };
+        var adminConfig = new AdminClientConfig
+        {
+            BootstrapServers = _kafkaSettings.BootstrapServers
+        };
         using var admin = new AdminClientBuilder(adminConfig).Build();
 
+        // monta uma specification para cada tópico do enum LogKafkaTopics
+        var specs = Enum.GetValues<LogKafkaTopics>()
+                        .Select(t => new TopicSpecification
+                        {
+                            Name = t.GetTopicName(),
+                            NumPartitions = 3,  // mantém 3 partições como antes
+                            ReplicationFactor = 1
+                        })
+                        .ToArray();
         try
         {
-            await admin.CreateTopicsAsync(new[]
-            {
-                new TopicSpecification
-                {
-                    Name              = _kafkaSettings.Topic,
-                    NumPartitions     = 3,
-                    ReplicationFactor = 1
-                }
-            });
-
-            _logger.LogInformation("Tópico '{Topic}' criado ou já existia.", _kafkaSettings.Topic);
+            await admin.CreateTopicsAsync(specs);
+            _logger.LogInformation(
+                "Tópicos de log verificados/criados: {Topics}",
+                string.Join(", ", specs.Select(s => s.Name))
+            );
         }
         catch (CreateTopicsException e)
-            when (e.Results.Any(r => r.Error.Code == ErrorCode.TopicAlreadyExists))
+            when (e.Results.All(r => r.Error.Code == ErrorCode.TopicAlreadyExists))
         {
-            _logger.LogInformation("Tópico '{Topic}' já existia — pulando criação.", _kafkaSettings.Topic);
+            _logger.LogInformation("Tópicos de log já existiam — pulando criação.");
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            _logger.LogError(e, "Falha ao criar tópico '{Topic}'.", _kafkaSettings.Topic);
+            _logger.LogError(ex, "Falha ao criar/verificar tópicos de log");
         }
     }
 }

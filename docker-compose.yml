@@ -245,6 +245,26 @@ services:
       - micro_net
     restart: unless-stopped
 
+  mailservice:
+    build:
+      context: .
+      dockerfile: MailService/Dockerfile
+    expose:
+      - "5004"
+    env_file:
+      - .env
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5004/health || exit 1"
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - micro_net
+    restart: unless-stopped
+
   apigateway:
     build:
       context: .

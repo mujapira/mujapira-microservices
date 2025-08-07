@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using Contracts.Common;
 using System.Text.Json;
 
-namespace UserService.Services;
+namespace MailService.Services;
 
 public class KafkaProducer : IKafkaProducer, IDisposable
 {

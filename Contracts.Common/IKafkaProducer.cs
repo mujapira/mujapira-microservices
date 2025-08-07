@@ -2,5 +2,6 @@
 
 public interface IKafkaProducer
 {
-    Task Produce(string message);
+    Task Produce<T>(string topic, T message);
 }
+

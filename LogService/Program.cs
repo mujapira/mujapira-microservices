@@ -139,7 +139,7 @@ builder.Services
 
 // Kafka consumer / log service
 builder.Services.AddScoped<ILogService, LogService.Services.LogService>();
-builder.Services.AddHostedService<KafkaLogConsumer>();
+builder.Services.AddHostedService<LogConsumer>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

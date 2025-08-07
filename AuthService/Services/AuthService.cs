@@ -39,7 +39,9 @@ namespace AuthService.Services
                         ["Email"] = request.Email
                     }
                 );
-                await _producer.Produce(JsonSerializer.Serialize(logDto));
+
+                await _producer.Produce(LogKafkaTopics.Auth.GetTopicName(), JsonSerializer.Serialize(logDto));
+
                 return AuthResult.Failure("Credenciais inválidas");
             }
 
@@ -70,7 +72,8 @@ namespace AuthService.Services
                     ["Email"] = user.Email
                 }
             );
-            await _producer.Produce(JsonSerializer.Serialize(successLog));
+            await _producer.Produce(LogKafkaTopics.Auth.GetTopicName(), JsonSerializer.Serialize(successLog));
+
 
             return AuthResult.SuccessResult(access, refresh);
         }
@@ -133,7 +136,7 @@ namespace AuthService.Services
                         ["UserId"] = stored.UserId
                     }
                 );
-                await _producer.Produce(JsonSerializer.Serialize(logDto));
+                await _producer.Produce(LogKafkaTopics.Auth.GetTopicName(), JsonSerializer.Serialize(logDto));
             }
         }
     }

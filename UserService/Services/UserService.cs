@@ -5,6 +5,7 @@ using Contracts.Logs;
 using UserService.Data;
 using UserService.Models;
 using Contracts.Common;
+using Contracts.Mail;
 
 namespace UserService.Services;
 
@@ -30,7 +31,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
             Metadata: new Dictionary<string, object> { ["Count"] = users.Count }
         );
 
-        await _producer.Produce(JsonSerializer.Serialize(logDto));
+        await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), JsonSerializer.Serialize(logDto));
 
         return users.Select(ToDto);
     }
@@ -50,7 +51,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
                 ["Found"] = user != null
             }
         );
-        await _producer.Produce(JsonSerializer.Serialize(logDto));
+        await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), JsonSerializer.Serialize(logDto));
 
         return user is null ? null : ToDto(user);
     }
@@ -82,7 +83,16 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
                 ["IsAdmin"] = user.IsAdmin
             }
         );
-        await _producer.Produce(JsonSerializer.Serialize(logDto));
+
+        var createdUserEvent = new CreatedUserEventDto(
+            Id: user.Id,
+            Email: user.Email,
+            Name: user.Name,
+            IsAdmin: user.IsAdmin
+         );
+
+        await _producer.Produce(MailKafkaTopics.UserRegistered.GetTopicName(), (createdUserEvent));
+        await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), (logDto));
 
         return ToDto(user);
     }
@@ -107,7 +117,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
             Timestamp: DateTime.UtcNow,
             Metadata: new Dictionary<string, object> { ["UserId"] = id }
         );
-        await _producer.Produce(JsonSerializer.Serialize(logDto));
+        await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), JsonSerializer.Serialize(logDto));
     }
 
     public async Task Delete(Guid id)
@@ -125,7 +135,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
                 Timestamp: DateTime.UtcNow,
                 Metadata: new Dictionary<string, object> { ["UserId"] = id }
             );
-            await _producer.Produce(JsonSerializer.Serialize(logDto));
+            await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), JsonSerializer.Serialize(logDto));
         }
     }
 
@@ -149,7 +159,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer) : IUserServic
                 ["Success"] = isValid
             }
         );
-        await _producer.Produce(JsonSerializer.Serialize(logDto));
+        await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), JsonSerializer.Serialize(logDto));
 
         return isValid ? ToDto(user!) : null;
     }

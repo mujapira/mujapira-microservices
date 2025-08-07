@@ -32,7 +32,8 @@ namespace UserService.Middlewares
                 );
 
                 var json = JsonSerializer.Serialize(logEvent);
-                await _producer.Produce(json);
+
+                await _producer.Produce(LogKafkaTopics.Users.GetTopicName(), json);
 
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 context.Response.ContentType = "application/json";
