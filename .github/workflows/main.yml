@@ -83,22 +83,16 @@ jobs:
 
           # JWT
           JwtSettings__Secret=${{ secrets.JWT_SECRET }}
-          JwtSettings__Issuer=AuthService
+          JwtSettings__Issuer=authservice
           JwtSettings__Audience=MyApp
           JwtSettings__AccessTokenExpirationMinutes=${{ secrets.JwtSettings__AccessTokenExpirationMinutes }}
           JwtSettings__RefreshTokenExpirationDays=${{ secrets.JwtSettings__RefreshTokenExpirationDays }}
 
-          # Auth Postgres
-          AUTH_POSTGRES_DB=${{ secrets.AUTH_POSTGRES_DB }}
-          AUTH_POSTGRES_USER=${{ secrets.AUTH_POSTGRES_USER }}
-          AUTH_POSTGRES_PASSWORD=${{ secrets.AUTH_POSTGRES_PASSWORD }}
-          ConnectionStrings__Auth=Host=postgres-auth;Port=5432;Database=${{ secrets.AUTH_POSTGRES_DB }};Username=${{ secrets.AUTH_POSTGRES_USER }};Password=${{ secrets.AUTH_POSTGRES_PASSWORD }}
-
-          # User Postgres
-          USER_POSTGRES_DB=${{ secrets.USER_POSTGRES_DB }}
-          USER_POSTGRES_USER=${{ secrets.USER_POSTGRES_USER }}
-          USER_POSTGRES_PASSWORD=${{ secrets.USER_POSTGRES_PASSWORD }}
-          ConnectionStrings__User=Host=postgres-user;Port=5432;Database=${{ secrets.USER_POSTGRES_DB }};Username=${{ secrets.USER_POSTGRES_USER }};Password=${{ secrets.USER_POSTGRES_PASSWORD }}
+          # Identity Postgres
+          IDENTITY_POSTGRES_DB=${{ secrets.IDENTITY_POSTGRES_DB }}
+          IDENTITY_POSTGRES_USER=${{ secrets.IDENTITY_POSTGRES_USER }}
+          IDENTITY_POSTGRES_PASSWORD=${{ secrets.IDENTITY_POSTGRES_PASSWORD }}
+          ConnectionStrings__Identity=${{ secrets.ConnectionStrings__Identity }}
 
           # Redis
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
@@ -140,8 +134,7 @@ jobs:
         run: |
           TAG=${{ steps.tag.outputs.TAG }}
           echo "Construindo imagens com tag $TAG"
-          docker build -t authservice:${TAG} -f AuthService/Dockerfile .
-          docker build -t userservice:${TAG} -f UserService/Dockerfile .
+          docker build -t identityservice:${TAG} -f IdentityService/Dockerfile .
           docker build -t logservice:${TAG} -f LogService/Dockerfile .
           docker build -t apigateway:${TAG} -f ApiGateway/Dockerfile .
 
@@ -162,7 +155,7 @@ jobs:
           echo "=== docker compose ps ==="
           docker compose ps
           echo "=== Últimos 100 logs de cada serviço ==="
-          for svc in authservice userservice logservice apigateway kafka zookeeper mongodb; do
+          for svc in identityservice userservice logservice apigateway kafka zookeeper mongodb; do
             echo "--- logs de $svc ---"
             docker compose logs --tail=100 "$svc" || true
           done
