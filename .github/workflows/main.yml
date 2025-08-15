@@ -107,6 +107,12 @@ jobs:
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
           ZOOKEEPER_CLIENT_PORT=2181
           ZOOKEEPER_TICK_TIME=2000
+          KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+          KAFKA_MIN_INSYNC_REPLICAS=1
+          KAFKA_DEFAULT_REPLICATION_FACTOR=1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
 
           # Mongo usando root
           MONGO_ROOT_USER=${{ secrets.MONGO_ROOT_USER }}
@@ -120,6 +126,8 @@ jobs:
           MongoDb__ConnectionString=mongodb://${{ secrets.MONGO_ROOT_USER }}:${{ secrets.MONGO_ROOT_PASSWORD }}@mongo:27017/${{ secrets.LOG_DB_NAME }}?authSource=admin&retryWrites=true&w=majority
           MongoDb__DatabaseName=${{ secrets.LOG_DB_NAME }}
           MongoDb__CollectionName=Logs
+
+          ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
 
           # Tags de imagem
           AUTH_TAG=${TAG}
