@@ -66,24 +66,17 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:8-alpine
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - redis_data:/data
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    expose:
-      - "6379"
+    image: redis/redis-stack-server:8.0.3
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
-      start_period: 20s
-      retries: 3
-    networks:
-      - micro_net
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
 
   postgres-identity:
     image: postgres:15
