@@ -2,7 +2,7 @@
 using Confluent.Kafka.Admin;
 using Contracts.Common;
 using Contracts.Mail;
-using Contracts.Users;
+using Contracts.Identity;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Text.Json.Serialization;

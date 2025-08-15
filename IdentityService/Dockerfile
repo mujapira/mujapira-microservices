@@ -7,7 +7,7 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# 1) Copia apenas os contratos que o MailService consome
+# 1) Copia apenas os contratos que o IdentityService consome
 COPY ["Contracts.Identity/Contracts.Identity.csproj",    "Contracts.Identity/"]
 COPY ["Contracts.Common/Contracts.Common.csproj", "Contracts.Common/"]
 COPY ["Contracts.Logs/Contracts.Logs.csproj",     "Contracts.Logs/"]
@@ -15,19 +15,20 @@ COPY ["Contracts.Mail/Contracts.Mail.csproj",     "Contracts.Mail/"]
 
 COPY ["Common.Observability/Common.Observability.csproj",     "Common.Observability/"]
 COPY ["Common.Readiness.Kafka/Common.Readiness.Kafka.csproj",     "Common.Readiness.Kafka/"]
+COPY ["Common.Readiness.Postgres/Common.Readiness.Postgres.csproj",     "Common.Readiness.Postgres/"]
+COPY ["Common.Readiness.Redis/Common.Readiness.Redis.csproj",     "Common.Readiness.Redis/"]
 
+# 2) Copia o csproj do IdentityService
+COPY ["IdentityService/IdentityService.csproj", "IdentityService/"]
 
-# 2) Copia o csproj do MailService
-COPY ["MailService/MailService.csproj", "MailService/"]
-
-# 3) Restaura apenas o MailService (já conhece os contratos)
-RUN dotnet restore "MailService/MailService.csproj"
+# 3) Restaura apenas o IdentityService (já conhece os contratos)
+RUN dotnet restore "IdentityService/IdentityService.csproj"
 
 COPY . .
 
-# 5) Publica o MailService em Release
-WORKDIR "/src/MailService"
-RUN dotnet publish "MailService.csproj" -c Release -o /app/publish --no-restore
+# 5) Publica o IdentityService em Release
+WORKDIR "/src/IdentityService"
+RUN dotnet publish "IdentityService.csproj" -c Release -o /app/publish --no-restore
 
 # — Stage 3: runtime image
 FROM base AS final
@@ -42,4 +43,4 @@ RUN apt-get update && \
 COPY --from=build /app/publish ./
 
 # 7) Entry point
-ENTRYPOINT ["dotnet", "MailService.dll"]
+ENTRYPOINT ["dotnet", "IdentityService.dll"]

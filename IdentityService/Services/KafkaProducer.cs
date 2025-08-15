@@ -1,9 +1,10 @@
 ﻿using Confluent.Kafka;
-using Microsoft.Extensions.Options;
 using Contracts.Common;
+using Microsoft.Extensions.Options;
+using System.Diagnostics;
 using System.Text.Json;
 
-namespace MailService.Services;
+namespace IdentityService.Services;
 
 public class KafkaProducer : IKafkaProducer, IDisposable
 {

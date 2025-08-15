@@ -10,7 +10,11 @@ WORKDIR /src
 # 1) Copia apenas os contratos que o LogService consome
 COPY ["Contracts.Common/Contracts.Common.csproj", "Contracts.Common/"]
 COPY ["Contracts.Logs/Contracts.Logs.csproj",     "Contracts.Logs/"]
-COPY ["Contracts.Users/Contracts.Users.csproj",     "Contracts.Users/"]
+COPY ["Contracts.Identity/Contracts.Identity.csproj",    "Contracts.Identity/"]
+
+COPY ["Common.Observability/Common.Observability.csproj",     "Common.Observability/"]
+COPY ["Common.Readiness.Kafka/Common.Readiness.Kafka.csproj",     "Common.Readiness.Kafka/"]
+COPY ["Common.Readiness.Mongo/Common.Readiness.Mongo.csproj",     "Common.Readiness.Mongo/"]
 
 # 2) Copia o csproj do LogService
 COPY ["LogService/LogService.csproj", "LogService/"]

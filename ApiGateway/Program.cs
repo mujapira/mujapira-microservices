@@ -1,4 +1,4 @@
-﻿using Contracts.Common; // JwtSettings
+﻿using Contracts.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -18,10 +18,18 @@ var env = builder.Environment;
 
 // 1) URLs & Configuration
 builder.WebHost.UseUrls("http://+:5000");
-builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
-    .AddEnvironmentVariables();
+try
+{
+    builder.Configuration
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)
+        .AddEnvironmentVariables();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"Falha carregando configuração: {ex.Message}");
+    throw;
+}
 
 // 2) Core services
 builder.Services.AddHttpContextAccessor();
@@ -108,6 +116,17 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseRouting();
 
 app.UseCors("DynamicCorsPolicy");
+
+app.Use(async (ctx, next) =>
+{
+    if (!ctx.Request.Headers.ContainsKey("Authorization") &&
+        ctx.Request.Cookies.TryGetValue("accessToken", out var access))
+    {
+        ctx.Request.Headers["Authorization"] = $"Bearer {access}";
+    }
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 

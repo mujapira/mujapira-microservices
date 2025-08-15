@@ -1,13 +1,67 @@
 {
   "Routes": [
+    /* AUTH (anônimo) */
     {
-      "UpstreamPathTemplate": "/users",
+      "UpstreamPathTemplate": "/auth/login",
       "UpstreamHttpMethod": [ "POST" ],
-      "DownstreamPathTemplate": "/api/users",
+      "DownstreamPathTemplate": "/api/auth/login",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
+          "Host": "identityservice",
+          "Port": 5002
+        }
+      ],
+      "HttpHandlerOptions": {
+        "UseCookieContainer": false,
+        "AllowAutoRedirect": false
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/auth/refresh",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/refresh",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identityservice",
+          "Port": 5002
+        }
+      ],
+      "HttpHandlerOptions": {
+        "UseCookieContainer": false,
+        "AllowAutoRedirect": false
+      }
+    },
+
+    /* AUTH (protegido) */
+    {
+      "UpstreamPathTemplate": "/auth/logout",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/auth/logout",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identityservice",
+          "Port": 5002
+        }
+      ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "HttpHandlerOptions": {
+        "UseCookieContainer": false,
+        "AllowAutoRedirect": false
+      }
+    },
+
+    /* USERS (anônimo) */
+    {
+      "UpstreamPathTemplate": "/users/register",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/users/register",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identityservice",
           "Port": 5002
         }
       ]
@@ -19,7 +73,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
+          "Host": "identityservice",
           "Port": 5002
         }
       ]
@@ -31,75 +85,71 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
+          "Host": "identityservice",
           "Port": 5002
         }
-      ],
-      "Priority": 1
+      ]
     },
+
+    /* USERS (protegido) */
     {
-      "UpstreamPathTemplate": "/users/me",
+      "UpstreamPathTemplate": "/users",
       "UpstreamHttpMethod": [ "GET" ],
-      "DownstreamPathTemplate": "/api/users/me",
+      "DownstreamPathTemplate": "/api/users",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
+          "Host": "identityservice",
           "Port": 5002
         }
       ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      },
-      "RouteClaimsRequirement": {
-        "Role": "Admin,User"
-      },
-      "UpstreamHeaderTransform": {
-        "Authorization": "{Authorization}"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RouteClaimsRequirement": { "Role": "Admin" }
     },
     {
-      "UpstreamPathTemplate": "/users/{everything}",
-      "UpstreamHttpMethod": [ "GET", "PUT" ],
-      "DownstreamPathTemplate": "/api/users/{everything}",
+      "UpstreamPathTemplate": "/users/promoteByEmail",
+      "UpstreamHttpMethod": [ "POST" ],
+      "DownstreamPathTemplate": "/api/users/promoteByEmail",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
+          "Host": "identityservice",
           "Port": 5002
         }
       ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      },
-      "RouteClaimsRequirement": {
-        "Role": "Admin,User"
-      },
-      "UpstreamHeaderTransform": {
-        "Authorization": "{Authorization}"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RouteClaimsRequirement": { "Role": "Admin" }
     },
     {
-      "UpstreamPathTemplate": "/users/{everything}",
+      "UpstreamPathTemplate": "/users/{id}",
+      "UpstreamHttpMethod": [ "PUT" ],
+      "DownstreamPathTemplate": "/api/users/{id}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identityservice",
+          "Port": 5002
+        }
+      ],
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RouteClaimsRequirement": { "Role": "Admin|User" }
+    },
+    {
+      "UpstreamPathTemplate": "/users/{id}",
       "UpstreamHttpMethod": [ "DELETE" ],
-      "DownstreamPathTemplate": "/api/users/{everything}",
+      "DownstreamPathTemplate": "/api/users/{id}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "userservice",
+          "Host": "identityservice",
           "Port": 5002
         }
       ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      },
-      "RouteClaimsRequirement": {
-        "Role": "Admin"
-      },
-      "UpstreamHeaderTransform": {
-        "Authorization": "{Authorization}"
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RouteClaimsRequirement": { "Role": "Admin" }
     },
+
+    /* LOGS (protegido) */
     {
       "UpstreamPathTemplate": "/logs/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -111,30 +161,8 @@
           "Port": 5001
         }
       ],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer"
-      },
-      "RouteClaimsRequirement": {
-        "Role": "Admin"
-      },
-      "UpstreamHeaderTransform": {
-        "Authorization": "{Authorization}"
-      }
-    },
-    {
-      "UpstreamPathTemplate": "/auth/{everything}",
-      "UpstreamHttpMethod": [ "POST", "GET" ],
-      "DownstreamPathTemplate": "/api/auth/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "authservice",
-          "Port": 5003
-        }
-      ],
-      "HttpHandlerOptions": {
-        "UseCookieContainer": true
-      }
+      "AuthenticationOptions": { "AuthenticationProviderKey": "Bearer" },
+      "RouteClaimsRequirement": { "Role": "Admin" }
     }
   ],
   "GlobalConfiguration": {

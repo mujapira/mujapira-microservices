@@ -1,66 +1,79 @@
+using System.Security.Claims;
+using System.Text;
 using Confluent.Kafka;
-using Contracts.Common;
+using Confluent.Kafka.Admin;
 using MailService.Services;
 using MailService.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder.Extensions;
 using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
-using System.Text;
+
+using Contracts.Common;
+using Common.Observability;
+using Common.Readiness.Kafka;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// =====================
+// Logging inicial
+// =====================
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(o =>
+{
+    o.SingleLine = true;
+    o.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff zzz ";
+    o.IncludeScopes = true;
+});
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+
+// =====================
+// Config & env
+// =====================
 var configuration = builder.Configuration;
 var env = builder.Environment;
 
-// logging precoce para readiness
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.SetMinimumLevel(LogLevel.Debug);
+// =====================
+// Host filtering & Health
+// =====================
+builder.Services.Configure<HostFilteringOptions>(configuration.GetSection("HostFiltering"));
+builder.Services.AddHealthChecks();
 
-// Host filtering
-builder.Services.Configure<HostFilteringOptions>(
-    configuration.GetSection("HostFiltering")
-);
-
-string host = Environment.GetEnvironmentVariable("SMTP_HOST")
+// =====================
+// SMTP (via env) + bind seguro
+// =====================
+string smtpHost = Environment.GetEnvironmentVariable("SMTP_HOST")
     ?? throw new InvalidOperationException("SMTP_HOST não está configurado.");
 
 string portEnv = Environment.GetEnvironmentVariable("SMTP_PORT")
     ?? throw new InvalidOperationException("SMTP_PORT não está configurado.");
 
-if (!int.TryParse(portEnv, out var port) || port <= 0)
+if (!int.TryParse(portEnv, out var smtpPort) || smtpPort <= 0)
     throw new InvalidOperationException("SMTP_PORT inválido.");
 
-string user = Environment.GetEnvironmentVariable("SMTP_USER")
+string smtpUser = Environment.GetEnvironmentVariable("SMTP_USER")
     ?? throw new InvalidOperationException("SMTP_USER não está configurado.");
 
-string appPwd = Environment.GetEnvironmentVariable("SMTP_APP_PASSWORD")
+string smtpAppPwd = Environment.GetEnvironmentVariable("SMTP_APP_PASSWORD")
     ?? throw new InvalidOperationException("SMTP_APP_PASSWORD não está configurado.");
 
-string from = Environment.GetEnvironmentVariable("SMTP_FROM")
+string smtpFrom = Environment.GetEnvironmentVariable("SMTP_FROM")
     ?? throw new InvalidOperationException("SMTP_FROM não está configurado.");
 
-// 2) Agora faz o bind seguro
 builder.Services.Configure<SmtpSettings>(opts =>
 {
-    opts.Host = host;
-    opts.Port = port;
-    opts.User = user;
-    opts.AppPassword = appPwd;
-    opts.From = from;
+    opts.Host = smtpHost;
+    opts.Port = smtpPort;
+    opts.User = smtpUser;
+    opts.AppPassword = smtpAppPwd;
+    opts.From = smtpFrom;
 });
 
-// ===== Kafka & JWT =====
-builder.Services.Configure<KafkaSettings>(
-    configuration.GetSection("Kafka"));
-builder.Services.Configure<JwtSettings>(
-    configuration.GetSection("JwtSettings"));
+// =====================
+// Kafka & JWT
+// =====================
+builder.Services.Configure<KafkaSettings>(configuration.GetSection("Kafka"));
+builder.Services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
 
-
-
-// Bind e validação de JWT settings
 var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
     ?? throw new InvalidOperationException("Seção JwtSettings está ausente.");
 
@@ -69,12 +82,36 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Secret))
 
 string kafkaBootstrap = configuration.GetSection("Kafka")["BootstrapServers"] ?? "kafka:9092";
 
-using var tempLoggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug));
-var tempLogger = tempLoggerFactory.CreateLogger("KafkaReadiness");
 
-await WaitForKafkaAsync(kafkaBootstrap, tempLogger);
+using (var tmpFactory = LoggerFactory.Create(lb =>
+{
+    lb.AddSimpleConsole(o =>
+    {
+        o.SingleLine = true;
+        o.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff zzz ";
+        o.IncludeScopes = true;
+    });
+    lb.SetMinimumLevel(LogLevel.Information);
+}))
+{
+    var tmpLogger = tmpFactory.CreateLogger("StartupReadiness");
+    using (tmpLogger.BeginScope(new Dictionary<string, object?>
+    {
+        ["Environment"] = env.EnvironmentName,
+        ["KafkaBootstrap"] = Masking.MaskBootstrapServers(kafkaBootstrap),
+        ["SmtpHost"] = smtpHost,
+        ["SmtpUser"] = Masking.MaskKeepFirstLast(smtpUser, 2, 2)
+    }))
+    {
+        tmpLogger.LogInformation("Iniciando readiness de Kafka e SMTP (bindings)...");
+        await KafkaReadiness.WaitAsync(kafkaBootstrap, tmpLogger);
+        tmpLogger.LogInformation("Dependências OK. Prosseguindo com DI e Build.");
+    }
+}
 
-// ===== Autenticação JWT =====
+// =====================
+// AuthN / AuthZ
+// =====================
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -94,61 +131,63 @@ builder.Services
         };
     });
 
-// Kafka consumer / log service
+builder.Services.AddAuthorization();
+
+// =====================
+// Serviços do domínio
+// =====================
+builder.Services.AddSingleton<IKafkaProducer, KafkaProducer>();
 builder.Services.AddScoped<IMailService, MailService.Services.MailService>();
 builder.Services.AddHostedService<MailConsumer>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-builder.Services.AddHealthChecks();
-
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// =====================
+// Logger principal + banner seguro
+// =====================
+var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+using (logger.BeginScope(new Dictionary<string, object?>
+{
+    ["Environment"] = env.EnvironmentName,
+    ["KafkaBootstrap"] = Masking.MaskBootstrapServers(kafkaBootstrap),
+    ["JwtSecretLen"] = jwtSettings.Secret.Length,
+    ["SmtpHost"] = smtpHost,
+    ["SmtpUser"] = Masking.MaskKeepFirstLast(smtpUser, 2, 2),
+    ["SmtpFrom"] = Masking.Safe(smtpFrom)
+}))
+{
+    logger.LogInformation("MailService iniciado com segurança e logging estruturado.");
+}
+
+// =====================
+// Pipeline
+// =====================
 app.UseHostFiltering();
 
-if (app.Environment.IsProduction())
+if (env.IsProduction())
 {
     app.UseHttpsRedirection();
     app.UseHsts();
 }
 
+app.UseRequestLogging();
+
 app.MapHealthChecks("/health");
+
+app.MapOpenApi();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
+app.Lifetime.ApplicationStarted.Register(() => logger.LogInformation("ApplicationStarted"));
+app.Lifetime.ApplicationStopping.Register(() => logger.LogInformation("ApplicationStopping"));
+app.Lifetime.ApplicationStopped.Register(() => logger.LogInformation("ApplicationStopped"));
 
-static async Task WaitForKafkaAsync(string bootstrapServers, ILogger logger, int maxRetries = 8)
-{
-    var config = new AdminClientConfig { BootstrapServers = bootstrapServers };
-    int attempt = 0;
-    TimeSpan delay = TimeSpan.FromSeconds(1);
-    while (true)
-    {
-        try
-        {
-            using var admin = new AdminClientBuilder(config).Build();
-            var meta = admin.GetMetadata(TimeSpan.FromSeconds(2));
-            logger.LogInformation("Kafka disponível, tópicos: {Count}", meta.Topics.Count);
-            return;
-        }
-        catch (Exception ex)
-        {
-            attempt++;
-            if (attempt >= maxRetries)
-            {
-                logger.LogError(ex, "Não foi possível conectar ao Kafka após {Attempt} tentativas.", attempt);
-                throw;
-            }
-            logger.LogWarning("Kafka não disponível (tentativa {Attempt}), retry em {Delay}s: {Msg}", attempt, delay.TotalSeconds, ex.Message);
-            await Task.Delay(delay);
-            delay = delay * 2;
-        }
-    }
-}
+app.Run();

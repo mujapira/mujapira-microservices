@@ -24,9 +24,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Common.Observability\Common.Observability.csproj" />
+    <ProjectReference Include="..\Common.Readiness.Kafka\Common.Readiness.Kafka.csproj" />
+    <ProjectReference Include="..\Common.Readiness.Mongo\Common.Readiness.Mongo.csproj" />
     <ProjectReference Include="..\Contracts.Common\Contracts.Common.csproj" />
     <ProjectReference Include="..\Contracts.Logs\Contracts.Logs.csproj" />
-    <ProjectReference Include="..\Contracts.Users\Contracts.Users.csproj" />
   </ItemGroup>
 
 </Project>
