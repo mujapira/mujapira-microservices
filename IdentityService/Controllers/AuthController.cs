@@ -39,15 +39,15 @@ public class AuthController : ControllerBase
         {
             HttpOnly = true,
             Secure = isProd || req.IsHttps,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax,
             Expires = DateTime.UtcNow.Add(lifetime),
             Path = "/",
             IsEssential = true
         };
 
-        var host = req.Host.Host;
-        if (host.EndsWith("mujapira.com", StringComparison.OrdinalIgnoreCase))
-            opts.Domain = ".mujapira.com";
+        var domain = ".mujapira.com";
+        if (!string.IsNullOrWhiteSpace(domain))
+            opts.Domain = domain;
 
         return opts;
     }
