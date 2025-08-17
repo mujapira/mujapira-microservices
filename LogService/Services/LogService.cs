@@ -18,47 +18,40 @@ public class LogService(
 
     public async Task<List<LogEntry>> GetLogs(LogQuery q)
     {
-        var builder = Builders<LogEntry>.Filter;
-        var filter = builder.Empty;
+        var b = Builders<LogEntry>.Filter;
+        var filter = b.Empty;
 
-        if (q.Sources != null && q.Sources.Count != 0)
-        {
-            filter &= builder.In(e => e.Source.ToString(), q.Sources);
-        }
+        if (q.Sources is { Count: > 0 })
+            filter &= b.In(x => x.Source, q.Sources);
 
-        if (q.Levels != null && q.Levels.Count != 0)
-        {
-            filter &= builder.In(e => e.Level.ToString(), q.Levels);
-        }
+        if (q.Levels is { Count: > 0 })
+            filter &= b.In(x => x.Level, q.Levels);
 
-        // datas
         if (q.From.HasValue)
-            filter &= builder.Gte(x => x.Timestamp, q.From.Value);
+            filter &= b.Gte(x => x.Timestamp, DateTime.SpecifyKind(q.From.Value, DateTimeKind.Utc));
 
         if (q.To.HasValue)
-            filter &= builder.Lte(x => x.Timestamp, q.To.Value);
+            filter &= b.Lte(x => x.Timestamp, DateTime.SpecifyKind(q.To.Value, DateTimeKind.Utc));
 
-        // busca parcial na mensagem
         if (!string.IsNullOrWhiteSpace(q.MessageContains))
-        {
-            filter &= builder.Regex(
-                x => x.Message,
-                new MongoDB.Bson.BsonRegularExpression(q.MessageContains, "i")
-            );
-        }
+            filter &= b.Regex(x => x.Message, new MongoDB.Bson.BsonRegularExpression(q.MessageContains, "i"));
 
-        // metadata
-        if (!string.IsNullOrWhiteSpace(q.MetadataKey) &&
-            !string.IsNullOrWhiteSpace(q.MetadataValue))
+        if (!string.IsNullOrWhiteSpace(q.MetadataKey) && !string.IsNullOrWhiteSpace(q.MetadataValue))
         {
-            filter &= builder.Eq($"Metadata.{q.MetadataKey}", q.MetadataValue);
+            // tenta casar tipos comuns para não restringir a string
+            object typed = q.MetadataValue!;
+            if (long.TryParse(q.MetadataValue, out var l)) typed = l;
+            else if (double.TryParse(q.MetadataValue, out var d)) typed = d;
+            else if (bool.TryParse(q.MetadataValue, out var bo)) typed = bo;
+
+            filter &= b.Eq($"Metadata.{q.MetadataKey}", typed);
         }
 
         return await logCollection
             .Find(filter)
+            .SortByDescending(x => x.Timestamp)
             .Skip(q.Skip)
             .Limit(q.Limit)
-            .SortByDescending(x => x.Timestamp)
             .ToListAsync();
     }
 }

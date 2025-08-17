@@ -40,7 +40,7 @@ namespace IdentityService.Services
                     }
                 );
 
-                _producer.ProduceFireAndForget(LogKafkaTopics.Auth.GetTopicName(), JsonSerializer.Serialize(logDto));
+                _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
 
                 return AuthResult.Failure("Credenciais inválidas");
             }
@@ -72,7 +72,7 @@ namespace IdentityService.Services
                     ["Email"] = user.Email
                 }
             );
-            _producer.ProduceFireAndForget(LogKafkaTopics.Auth.GetTopicName(), JsonSerializer.Serialize(successLog));
+            _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (successLog));
 
 
             return AuthResult.SuccessResult(access, refresh);
@@ -136,7 +136,7 @@ namespace IdentityService.Services
                         ["UserId"] = stored.UserId
                     }
                 );
-                _producer.ProduceFireAndForget(LogKafkaTopics.Auth.GetTopicName(), JsonSerializer.Serialize(logDto));
+                _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
             }
         }
     }

@@ -32,7 +32,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
             Metadata: new Dictionary<string, object> { ["Count"] = users.Count }
         );
 
-        _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), (logDto));
+        _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
 
         return users.Select(ToDto);
     }
@@ -53,7 +53,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
             }
         );
 
-        _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), (logDto));
+        _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
 
         return user is null ? null : ToDto(user);
     }
@@ -108,7 +108,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
         );
 
         _producer.ProduceFireAndForget(MailKafkaTopics.UserRegistered.GetTopicName(), createdUserEvent);
-        _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), logDto);
+        _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), logDto);
 
         return ToDto(user);
     }
@@ -134,7 +134,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
             Timestamp: DateTime.UtcNow,
             Metadata: new Dictionary<string, object> { ["UserId"] = id }
         );
-        _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), (logDto));
+        _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
     }
 
     public async Task Delete(Guid id)
@@ -146,13 +146,13 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
             await _ctx.SaveChangesAsync();
 
             var logDto = new LogMessageDto(
-                 Source: RegisteredMicroservices.UserService,
+                Source: RegisteredMicroservices.UserService,
                 Level: Contracts.Logs.LogLevel.Info,
                 Message: "Usuário deletado",
                 Timestamp: DateTime.UtcNow,
                 Metadata: new Dictionary<string, object> { ["UserId"] = id }
             );
-            _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), (logDto));
+            _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
         }
     }
 
@@ -166,7 +166,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
                       BCrypt.Net.BCrypt.Verify(dto.Password, user.Password);
 
         var logDto = new LogMessageDto(
-             Source: RegisteredMicroservices.UserService,
+            Source: RegisteredMicroservices.UserService,
             Level: isValid ? Contracts.Logs.LogLevel.Info : Contracts.Logs.LogLevel.Warn,
             Message: "Validação de credenciais",
             Timestamp: DateTime.UtcNow,
@@ -176,7 +176,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
                 ["Success"] = isValid
             }
         );
-        _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), (logDto));
+        _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), (logDto));
 
         return isValid ? ToDto(user!) : null;
     }
@@ -218,7 +218,7 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
                 }
             );
 
-            _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), idempotentLog);
+            _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), idempotentLog);
             return;
         }
 
@@ -238,6 +238,6 @@ public class UserService(CorpContext ctx, IKafkaProducer producer, IConfiguratio
             }
         );
 
-        _producer.ProduceFireAndForget(LogKafkaTopics.Users.GetTopicName(), logDto);
+        _producer.ProduceFireAndForget(LogKafkaTopics.Logs.GetTopicName(), logDto);
     }
 }

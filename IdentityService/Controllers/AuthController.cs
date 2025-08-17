@@ -35,19 +35,26 @@ public class AuthController : ControllerBase
 
     private static CookieOptions BuildAccessCookieOptions(HttpRequest req, bool isProd, TimeSpan lifetime)
     {
+
         var opts = new CookieOptions
         {
             HttpOnly = true,
-            Secure = isProd || req.IsHttps,
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTime.UtcNow.Add(lifetime),
+            IsEssential = true,
             Path = "/",
-            IsEssential = true
+            Expires = DateTime.UtcNow.Add(lifetime),
         };
 
-        var domain = ".mujapira.com";
-        if (!string.IsNullOrWhiteSpace(domain))
-            opts.Domain = domain;
+        if (isProd)
+        {
+            opts.SameSite = SameSiteMode.None;
+            opts.Secure = true;
+            opts.Domain = ".mujapira.com";
+        }
+        else
+        {
+            opts.SameSite = SameSiteMode.Lax;
+            opts.Secure = req.IsHttps;
+        }
 
         return opts;
     }
@@ -108,11 +115,9 @@ public class AuthController : ControllerBase
         }
 
         var isProd = _env.IsProduction();
-        var secureFlag = HttpContext.Request.IsHttps || isProd;
-
         // cookies
-        Response.Cookies.Append("refreshToken", result.RefreshToken, BuildAccessCookieOptions(Request, secureFlag, TimeSpan.FromDays(_jwtSettings.RefreshTokenExpirationDays)));
-        Response.Cookies.Append("accessToken", result.AccessToken, BuildAccessCookieOptions(Request, secureFlag, TimeSpan.FromMinutes(_jwtSettings.AccessTokenExpirationMinutes)));
+        Response.Cookies.Append("refreshToken", result.RefreshToken, BuildAccessCookieOptions(Request, isProd, TimeSpan.FromDays(_jwtSettings.RefreshTokenExpirationDays)));
+        Response.Cookies.Append("accessToken", result.AccessToken, BuildAccessCookieOptions(Request, isProd, TimeSpan.FromMinutes(_jwtSettings.AccessTokenExpirationMinutes)));
 
         // mantém compat no corpo
         return Ok(BuildAccessTokenResponse(result.AccessToken));
@@ -149,15 +154,13 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Refresh token inválido." });
         }
 
-        var secureFlag = HttpContext.Request.IsHttps || isProd;
-
-        Response.Cookies.Append("refreshToken", refreshResult.RefreshToken, BuildAccessCookieOptions(Request, secureFlag, TimeSpan.FromDays(_jwtSettings.RefreshTokenExpirationDays)));
-        Response.Cookies.Append("accessToken", refreshResult.AccessToken, BuildAccessCookieOptions(Request, secureFlag, TimeSpan.FromMinutes(_jwtSettings.AccessTokenExpirationMinutes)));
+        Response.Cookies.Append("refreshToken", refreshResult.RefreshToken, BuildAccessCookieOptions(Request, isProd, TimeSpan.FromDays(_jwtSettings.RefreshTokenExpirationDays)));
+        Response.Cookies.Append("accessToken", refreshResult.AccessToken, BuildAccessCookieOptions(Request, isProd, TimeSpan.FromMinutes(_jwtSettings.AccessTokenExpirationMinutes)));
 
         return NoContent();
     }
 
-
+    [AllowAnonymous]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
