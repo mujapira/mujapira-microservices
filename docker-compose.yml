@@ -5,6 +5,7 @@ networks:
 volumes:
   mongo-data:
   postgres-identity-data:
+  postgres-bugreport-data:
   redis_data:
 
 services:
@@ -109,6 +110,32 @@ services:
     networks:
       - micro_net
 
+  postgres-bugreport:
+    image: postgres:15
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${BUG_REPORT_POSTGRES_DB}
+      POSTGRES_USER: ${BUG_REPORT_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${BUG_REPORT_POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    expose:
+      - "5432"
+    volumes:
+      - postgres-bugreport-data:/var/lib/postgresql/data
+      - ./init-db/bugreport-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "pg_isready -U ${BUG_REPORT_POSTGRES_USER} -d ${BUG_REPORT_POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    networks:
+      - micro_net
+
   mongo:
     image: mongo:7.0
     env_file:
@@ -168,32 +195,6 @@ services:
       - micro_net
     restart: unless-stopped
 
-  mailservice:
-    build:
-      context: .
-      dockerfile: MailService/Dockerfile
-    expose:
-      - "5004"
-    env_file:
-      - .env
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      ASPNETCORE_URLS: http://+:5004
-    healthcheck:
-      test:
-        - "CMD-SHELL"
-        - "curl --fail http://localhost:5004/health || exit 1"
-      interval: 10s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-    networks:
-      - micro_net
-    restart: unless-stopped
-
   identityservice:
     build:
       context: .
@@ -221,6 +222,64 @@ services:
       test:
         - "CMD-SHELL"
         - "curl --fail http://localhost:5002/health || exit 1"
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - micro_net
+    restart: unless-stopped
+
+  bugreportservice:
+    build:
+      context: .
+      dockerfile: BugReportService/Dockerfile
+    expose:
+      - "5003"
+    ports:
+      - "5003:5003"
+    env_file:
+      - .env
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-bugreport:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:5003
+      ConnectionStrings__BugReport: ${ConnectionStrings__BugReport}
+      Kafka__BootstrapServers: ${KAFKA_BOOTSTRAP_SERVERS}
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5003/health || exit 1"
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - micro_net
+    restart: unless-stopped
+
+  mailservice:
+    build:
+      context: .
+      dockerfile: MailService/Dockerfile
+    expose:
+      - "5004"
+    env_file:
+      - .env
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_URLS: http://+:5004
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl --fail http://localhost:5004/health || exit 1"
       interval: 10s
       timeout: 5s
       start_period: 30s

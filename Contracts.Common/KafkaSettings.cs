@@ -18,7 +18,8 @@ namespace Contracts.Common
 
     public enum MailKafkaTopics
     {
-        [Description("user-registered")] UserRegistered
+        [Description("user-registered")] UserRegistered,
+        [Description("bug-reported")] BugReported
     }
 
     public static class KafkaTopicsExtensions
