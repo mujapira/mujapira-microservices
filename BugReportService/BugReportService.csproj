@@ -35,7 +35,7 @@
 		<ProjectReference Include="..\Common.Observability\Common.Observability.csproj" />
 		<ProjectReference Include="..\Common.Readiness.Kafka\Common.Readiness.Kafka.csproj" />
 		<ProjectReference Include="..\Common.Readiness.Postgres\Common.Readiness.Postgres.csproj" />
-		<ProjectReference Include="..\Contract.BugReport\Contracts.BugReport.csproj" />
+		<ProjectReference Include="..\Contracts.BugReport\Contracts.BugReport.csproj" />
 		<ProjectReference Include="..\Contracts.Common\Contracts.Common.csproj" />
 		<ProjectReference Include="..\Contracts.Identity\Contracts.Identity.csproj" />
 		<ProjectReference Include="..\Contracts.Logs\Contracts.Logs.csproj" />

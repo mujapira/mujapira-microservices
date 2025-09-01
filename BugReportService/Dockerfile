@@ -12,6 +12,7 @@ COPY ["Contracts.BugReport/Contracts.BugReport.csproj",    "Contracts.BugReport/
 COPY ["Contracts.Common/Contracts.Common.csproj", "Contracts.Common/"]
 COPY ["Contracts.Logs/Contracts.Logs.csproj",     "Contracts.Logs/"]
 COPY ["Contracts.Mail/Contracts.Mail.csproj",     "Contracts.Mail/"]
+COPY ["Contracts.Identity/Contracts.Identity.csproj",     "Contracts.Identity/"]
 
 COPY ["Common.Observability/Common.Observability.csproj",     "Common.Observability/"]
 COPY ["Common.Readiness.Kafka/Common.Readiness.Kafka.csproj",     "Common.Readiness.Kafka/"]
